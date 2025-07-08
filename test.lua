@@ -1,3 +1,5 @@
+
+
 if not getgenv()._ or type(getgenv()._) ~= "string" or not getgenv()._:find("Add roqate to get latest update ok bai >.+ | If you pay for this script you get scammed, this script is completely free, if you remove this credit script wont work ok bai now") then
     game:GetService("Players").LocalPlayer:Kick("\n⚠️ Script tampering detected!\nThis script is free, don't remove credits.")
     while true do end 
@@ -31,6 +33,16 @@ local hidden = false
 local hidePlatform = nil
 local allChatConnections = {}
 local lastResponseTime = 0
+
+local function isWhitelisted(player)
+    local whitelist = getgenv().Configuration.whitelist or {}
+    for _, name in ipairs(whitelist) do
+        if player.Name == name or (player.DisplayName and player.DisplayName == name) then
+            return true
+        end
+    end
+    return false
+end
 
 local function createStandPlatform()
     if standPlatform then standPlatform:Destroy() end
@@ -127,7 +139,7 @@ local function getRoot(character)
 end
 
 local function flingPlayer(target)
-    if not target or not target.Character or target == localPlayer then return end
+    if not target or not target.Character or target == localPlayer or isWhitelisted(target) then return end
     if yeetForce then yeetForce:Destroy() end
     local targetRoot = getRoot(target.Character)
     local myRoot = getRoot(localPlayer.Character)
@@ -212,7 +224,7 @@ local function startProtection()
         local ownerRoot = getRoot(owner.Character)
         if not myRoot or not ownerRoot then return end
         for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer and player ~= owner and player.Character then
+            if player ~= localPlayer and player ~= owner and player.Character and not isWhitelisted(player) then
                 local targetRoot = getRoot(player.Character)
                 if targetRoot and (targetRoot.Position - ownerRoot.Position).Magnitude < PROTECTION_RADIUS then
                     flingPlayer(player)
@@ -577,7 +589,7 @@ local function processCommand(message)
                 local originalOffset = FOLLOW_OFFSET
                 
                 for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= localPlayer and player.Character then
+                    if player ~= localPlayer and player.Character and not isWhitelisted(player) then
                         local knife = localPlayer.Backpack:FindFirstChild("Knife") or 
                                      localPlayer.Character:FindFirstChild("Knife")
                         
@@ -618,7 +630,7 @@ local function processCommand(message)
             
             spawn(function()
                 local target = findPlayerWithTool("Knife")
-                if target and target.Character then
+                if target and target.Character and not isWhitelisted(target) then
                     local gun = localPlayer.Backpack:FindFirstChild("Gun") or 
                                  localPlayer.Character:FindFirstChild("Gun")
                     
@@ -671,14 +683,14 @@ local function processCommand(message)
         local targetName = args[2]:lower()
         if targetName == "all" then
             for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= localPlayer then
+                if player ~= localPlayer and not isWhitelisted(player) then
                     spawn(function() flingPlayer(player) end)
                 end
             end
             makeStandSpeak("Launching everyone to the stratosphere!")
         elseif targetName == "murder" then
             local target = findPlayerWithTool("Knife")
-            if target then
+            if target and not isWhitelisted(target) then
                 flingPlayer(target)
                 makeStandSpeak("Eliminating the murderer! No witnesses!")
             else
@@ -686,7 +698,7 @@ local function processCommand(message)
             end
         elseif targetName == "sheriff" then
             local target = findPlayerWithTool("Gun")
-            if target then
+            if target and not isWhitelisted(target) then
                 flingPlayer(target)
                 makeStandSpeak("Taking down the sheriff! Anarchy reigns!")
             else
@@ -694,7 +706,7 @@ local function processCommand(message)
             end
         else
             local target = findTarget(table.concat(args, " ", 2))
-            if target then
+            if target and not isWhitelisted(target) then
                 flingPlayer(target)
                 makeStandSpeak("Target locked! Say hello to the sky!")
             else
@@ -710,14 +722,14 @@ if localPlayer then
         owner = findOwner()
         if owner then
             followOwner()
-            makeStandSpeak("The World stands ready to serve!")
+            makeStandSpeak(getgenv().Configuration.Msg)
         end
     elseif not isStudio then
         disablePlayerMovement()
         owner = findOwner()
         if owner then
             followOwner()
-            makeStandSpeak("The World stands ready to serve!")
+            makeStandSpeak(getgenv().Configuration.Msg)
         end
     end
 
