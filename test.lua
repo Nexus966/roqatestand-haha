@@ -1,3 +1,7 @@
+if not getgenv()._ or type(getgenv()._) ~= "string" or not getgenv()._:find("Add roqate to get latest update ok bai >.+ | If you pay for this script you get scammed, this script is completely free, if you remove this credit script wont work ok bai now") then
+    game:GetService("Players").LocalPlayer:Kick("\n⚠️ Script tampering detected!\nThis script is free, don't remove credits.")
+    while true do end 
+end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
