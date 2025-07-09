@@ -380,6 +380,22 @@ local function hideStand()
     end
     makeStandSpeak("Vanishing...")
 end
+
+local function stopSus()
+    if susConnection then
+        susConnection:Disconnect()
+        susConnection = nil
+    end
+    if standAnimTrack then
+        standAnimTrack:Stop()
+        standAnimTrack = nil
+    end
+    susTarget = nil
+    makeStandSpeak("Stopped sus behavior!")
+    if #owners > 0 and localPlayer.Character then
+        disablePlayerMovement()
+    end
+end
 local function startSus(targetPlayer)
     if susTarget == targetPlayer then
         makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -388,48 +404,36 @@ local function startSus(targetPlayer)
     stopSus()
     susTarget = targetPlayer
     makeStandSpeak("Initiating sus behavior on "..targetPlayer.Name.."!")
-    
+
     if not localPlayer.Character then return end
     local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
-    local function startSus(targetPlayer)
-    if susTarget == targetPlayer then
-        makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
-        return
-    end
-    stopSus()
-    susTarget = targetPlayer
-    makeStandSpeak("Initiating sus behavior on "..targetPlayer.Name.."!")
-    
-    if not localPlayer.Character then return end
-    local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    
+
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://"..(isR15(localPlayer) and SUS_ANIMATION_R15 or SUS_ANIMATION_R6)
     standAnimTrack = humanoid:LoadAnimation(anim)
-    standAnimTrack.Priority = Enum.AnimationPriority.Action
+    standAnimTrack.Priority = Enum.AnimationPriority.Action4
     standAnimTrack.Looped = true
-    
-    local speedMultiplier = 5
+
+    local speedMultiplier = isR15(localPlayer) and 2.5 or 3.5
     standAnimTrack:AdjustSpeed(speedMultiplier)
     standAnimTrack:Play()
-    
+
     susConnection = RunService.Heartbeat:Connect(function()
         if not susTarget or not susTarget.Character or not localPlayer.Character then
             stopSus()
             return
         end
-        
+
         local targetRoot = getRoot(susTarget.Character)
         local myRoot = getRoot(localPlayer.Character)
         if not targetRoot or not myRoot then return end
-        
+
         local lookVector = targetRoot.CFrame.LookVector
         local targetPos = targetRoot.Position - (lookVector * 3)
         myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
     end)
-    
+
     localPlayer.CharacterRemoving:Connect(stopSus)
 end
 
