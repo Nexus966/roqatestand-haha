@@ -415,7 +415,7 @@ local function startSus(targetPlayer)
     standAnimTrack.Priority = Enum.AnimationPriority.Action4
     standAnimTrack.Looped = true
 
-    local speedMultiplier = isR15(localPlayer) and 2.5 or 3.5
+    local speedMultiplier = isR15(localPlayer) and 5 or 3.5
     standAnimTrack:AdjustSpeed(speedMultiplier)
     standAnimTrack:Play()
 
