@@ -380,22 +380,6 @@ local function hideStand()
     end
     makeStandSpeak("Vanishing...")
 end
-
-local function stopSus()
-    if susConnection then
-        susConnection:Disconnect()
-        susConnection = nil
-    end
-    if standAnimTrack then
-        standAnimTrack:Stop()
-        standAnimTrack = nil
-    end
-    susTarget = nil
-    makeStandSpeak("Stopped sus behavior!")
-    if #owners > 0 and localPlayer.Character then
-        disablePlayerMovement()
-    end
-end
 local function startSus(targetPlayer)
     if susTarget == targetPlayer then
         makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -412,11 +396,15 @@ local function startSus(targetPlayer)
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://"..(isR15(localPlayer) and SUS_ANIMATION_R15 or SUS_ANIMATION_R6)
     standAnimTrack = humanoid:LoadAnimation(anim)
-    standAnimTrack.Priority = Enum.AnimationPriority.Action
-    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 4 or 6) 
-    standAnimTrack:Play() 
+    standAnimTrack.Priority = Enum.AnimationPriority.Action4
     
+    local speedMultiplier = isR15(localPlayer) and 10 or 15
+    standAnimTrack:AdjustSpeed(speedMultiplier)
+    standAnimTrack:Play()
+    
+    local animLength = standAnimTrack.Length / speedMultiplier
     local lastLoopTime = tick()
+    
     susConnection = RunService.Heartbeat:Connect(function()
         if not susTarget or not susTarget.Character or not localPlayer.Character then
             stopSus()
@@ -427,13 +415,13 @@ local function startSus(targetPlayer)
         local myRoot = getRoot(localPlayer.Character)
         if not targetRoot or not myRoot then return end
         
-        local behindOffset = targetRoot.CFrame.LookVector * -3
-        local targetPos = targetRoot.Position + behindOffset
+        local lookVector = targetRoot.CFrame.LookVector
+        local targetPos = targetRoot.Position - (lookVector * 3)
         myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
         
-        if tick() - lastLoopTime > standAnimTrack.Length * 0.9 then
+        if tick() - lastLoopTime > animLength * 0.9 then
             standAnimTrack:Stop()
-            standAnimTrack:Play() 
+            standAnimTrack:Play()
             lastLoopTime = tick()
         end
     end)
@@ -442,7 +430,6 @@ local function startSus(targetPlayer)
         stopSus()
     end)
 end
-
 local function stealGun()
     if not localPlayer.Character then return end
     local currentGun = localPlayer.Character:FindFirstChild("Gun") or localPlayer.Backpack:FindFirstChild("Gun")
