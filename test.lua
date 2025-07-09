@@ -42,6 +42,9 @@ local commandCooldowns = {}
 local commandAbuseWarnings = {}
 local lastMovementCheck = {}
 local suspendedPlayers = {}
+local rudePlayers = {}
+local rudePhrases = {"pmo", "sybau", "syfm", "die", "fat", "idc", "shut up"}
+local randomTargets = {}
 
 local function isR15(player)
 	return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.RigType == Enum.HumanoidRigType.R15
@@ -159,6 +162,19 @@ local function findTarget(targetName)
 	elseif #foundPlayers > 1 then
 		makeStandSpeak("Multiple matches found!")
 		return nil
+	end
+	return nil
+end
+
+local function getRandomPlayer()
+	local players = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer then
+			table.insert(players, player)
+		end
+	end
+	if #players > 0 then
+		return players[math.random(1, #players)]
 	end
 	return nil
 end
@@ -352,6 +368,9 @@ local function dismissStand()
 		yeetForce = nil
 	end
 	flinging = false
+	for playerName, _ in pairs(rudePlayers) do
+		rudePlayers[playerName] = nil
+	end
 	makeStandSpeak("Resting for now...")
 end
 
@@ -650,13 +669,13 @@ end
 local function checkCommandAbuse(speaker)
 	if not isOwner(speaker) then return false end
 	if speaker.Name == getgenv().Owners[1] then return false end
-	
+
 	if isPlayerSuspended(speaker.Name) then
 		local remaining = suspendedPlayers[speaker.Name] - os.time()
 		makeStandSpeak(speaker.Name.." is suspended for "..remaining.." more seconds!")
 		return true
 	end
-	
+
 	local currentTime = os.time()
 	commandAbuseCount[speaker.Name] = commandAbuseCount[speaker.Name] or {count = 0, lastTime = 0, warnings = 0}
 	local abuseData = commandAbuseCount[speaker.Name]
@@ -691,27 +710,30 @@ local function checkAFKPlayers()
 					if not lastMovementCheck[player.Name] then
 						lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
 					else
-						if (root.Position - lastMovementCheck[player.Name].position).Magnitude < 1 then
+						local distance = (root.Position - lastMovementCheck[player.Name].position).Magnitude
+						if distance < 1 then
 							if os.time() - lastMovementCheck[player.Name].time > 300 then
 								afkPlayers[player.Name] = {position = root.Position, time = os.time()}
 								makeStandSpeak("I think "..player.Name.." is AFK, they haven't moved for over 5 minutes!")
 							end
-						else
+						elseif distance > 50 then
 							lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
-						end
-					end
-				else
-					if (root.Position - afkPlayers[player.Name].position).Magnitude > 5 then
-						local movedDistance = 0
-						for i = 1, 5 do
-							local currentPos = getRoot(player.Character).Position
-							movedDistance = movedDistance + (currentPos - lastMovementCheck[player.Name].position).Magnitude
-							lastMovementCheck[player.Name] = {position = currentPos, time = os.time()}
-							task.wait(0.5)
-						end
-						if movedDistance > 10 then
-							makeStandSpeak(player.Name.." is back from being AFK (:")
-							afkPlayers[player.Name] = nil
+						else
+							local movementSmoothness = 0
+							for i = 1, 5 do
+								local currentPos = getRoot(player.Character).Position
+								movementSmoothness = movementSmoothness + (currentPos - lastMovementCheck[player.Name].position).Magnitude
+								lastMovementCheck[player.Name] = {position = currentPos, time = os.time()}
+								task.wait(0.1)
+							end
+							if movementSmoothness > 10 and movementSmoothness < 50 then
+								if afkPlayers[player.Name] then
+									makeStandSpeak(player.Name.." is back from being AFK (:")
+									afkPlayers[player.Name] = nil
+								end
+							else
+								lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
+							end
 						end
 					end
 				end
@@ -725,15 +747,15 @@ local function getInnocentPlayers()
 	local sheriffs = findPlayersWithTool("Gun")
 	local murdererNames = {}
 	local sheriffNames = {}
-	
+
 	for _, player in ipairs(murderers) do
 		table.insert(murdererNames, isWhitelisted(player) and player.Name:sub(1,1) or player.Name)
 	end
-	
+
 	for _, player in ipairs(sheriffs) do
 		table.insert(sheriffNames, isWhitelisted(player) and player.Name:sub(1,1) or player.Name)
 	end
-	
+
 	if #murdererNames > 0 or #sheriffNames > 0 then
 		return "ALL Players but "..(#murdererNames > 0 and ("(Murderer: "..table.concat(murdererNames, ", ")..") ") or "")..(#sheriffNames > 0 and ("(Sheriff: "..table.concat(sheriffNames, ", ")..")") or "")
 	else
@@ -748,25 +770,59 @@ local function showCommands(speaker)
 		return
 	end
 	lastCommandsTime = currentTime
-	
+
 	local commandGroups = {
-		".follow (user/murder/sheriff), .protect (on/off), .say (message), .reset, .hide",
-		".dismiss, .summon, .fling (all/sheriff/murder/user), .stealgun, .whitelist (user)",
-		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff) (speed), .stopsus",
-		".eliminate, .commands, .disable (cmd), .enable (cmd)"
+		".follow (user/murder/sheriff/random), .protect (on/off), .say (message), .reset, .hide",
+		".dismiss, .summon, .fling (all/sheriff/murder/user/random), .stealgun, .whitelist (user)",
+		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff/random) (speed), .stopsus",
+		".eliminate (random), .commands, .disable (cmd), .enable (cmd)"
 	}
-	
+
 	for _, group in ipairs(commandGroups) do
 		makeStandSpeak(group)
 		task.wait(1)
 	end
 end
 
+local function checkRudeMessage(speaker, message)
+	if speaker.Name == getgenv().Owners[1] then return end
+	local msg = message:lower()
+	for _, phrase in ipairs(rudePhrases) do
+		if msg:find(phrase) then
+			rudePlayers[speaker.Name] = true
+			makeStandSpeak("Hey "..speaker.Name..", that's not cool! Don't say those things to my owner!")
+			flingPlayer(speaker)
+			return true
+		end
+	end
+	return false
+end
+
+local function checkApology(speaker, message)
+	if not rudePlayers[speaker.Name] then return false end
+	local msg = message:lower()
+	if msg:find("sorry") or msg:find("apologize") or msg:find("my bad") then
+		rudePlayers[speaker.Name] = nil
+		makeStandSpeak("Apology accepted "..speaker.Name.."!")
+		if yeetForce then
+			yeetForce:Destroy()
+			yeetForce = nil
+		end
+		flinging = false
+		return true
+	end
+	return false
+end
+
 local function respondToChat(speaker, message)
 	if speaker == localPlayer then return end
 	if tick() - lastResponseTime < 5 then return end
+
+	if checkRudeMessage(speaker, message) then return end
+	if checkApology(speaker, message) then return end
+
 	local msg = message:lower()
-	
+
 	if msg:find("afk") then
 		if speaker.Character then
 			local root = getRoot(speaker.Character)
@@ -778,7 +834,7 @@ local function respondToChat(speaker, message)
 			end
 		end
 	end
-	
+
 	for playerName, afkData in pairs(afkPlayers) do
 		if msg:find(playerName:lower():sub(1, 3)) then
 			makeStandSpeak(playerName.." is AFK")
@@ -786,25 +842,25 @@ local function respondToChat(speaker, message)
 			return
 		end
 	end
-	
+
 	if msg:find("who is innocent") or msg:find("whos innocent") then
 		makeStandSpeak(getInnocentPlayers())
 		lastResponseTime = tick()
 		return
 	end
-	
+
 	if msg:find("good boy") then
 		makeStandSpeak("Yes I'm a good boy!")
 		lastResponseTime = tick()
 		return
 	end
-	
+
 	if msg:find("roqate") then
 		makeStandSpeak("All glory to Roqate!")
 		lastResponseTime = tick()
 		return
 	end
-	
+
 	local responsePatterns = {
 		{
 			patterns = {"whats that", "what is that", "what is this", "what are you"},
@@ -897,7 +953,7 @@ local function respondToChat(speaker, message)
 			end
 		}
 	}
-	
+
 	for _, responseGroup in ipairs(responsePatterns) do
 		if stringContainsAny(msg, responseGroup.patterns) then
 			local response
@@ -920,12 +976,18 @@ local function processCommand(speaker, message)
 	if tick() - lastCommandTime < commandDelay then return end
 	lastCommandTime = tick()
 
-	if not isOwner(speaker) then
-		makeStandSpeak("Hey "..speaker.Name..", unfortunately you can't use the commands. Ask "..getgenv().Owners[1].." for them. You can pay 100 robux or 1 godly.")
-		return
+	if speaker ~= localPlayer then
+		if not isOwner(speaker) then
+			makeStandSpeak("Hey "..speaker.Name..", unfortunately you can't use the commands. Ask "..getgenv().Owners[1].." for them. You can pay 100 robux or 1 godly.")
+			return
+		end
+
+		if checkCommandAbuse(speaker) then return end
 	end
 
-	if checkCommandAbuse(speaker) then return end
+	if rudePlayers[speaker.Name] and not message:lower():find("sorry") then
+		return
+	end
 
 	local args = {}
 	for word in message:gmatch("%S+") do
@@ -957,6 +1019,15 @@ local function processCommand(speaker, message)
 				makeStandSpeak("Following sheriff!")
 			else
 				makeStandSpeak("No sheriff found")
+			end
+		elseif targetName == "random" then
+			local target = getRandomPlayer()
+			if target then
+				owners = {target}
+				followOwners()
+				makeStandSpeak("Following random player "..target.Name)
+			else
+				makeStandSpeak("No random player found")
 			end
 		else
 			local target = findTarget(table.concat(args, " ", 2))
@@ -1008,6 +1079,14 @@ local function processCommand(speaker, message)
 				makeStandSpeak("Taking down sheriff!")
 			else
 				makeStandSpeak("No sheriff found")
+			end
+		elseif targetName == "random" then
+			local target = getRandomPlayer()
+			if target then
+				flingPlayer(target)
+				makeStandSpeak("Flinging random player "..target.Name)
+			else
+				makeStandSpeak("No random player found")
 			end
 		else
 			local target = findTarget(table.concat(args, " ", 2))
@@ -1077,6 +1156,14 @@ local function processCommand(speaker, message)
 			else
 				makeStandSpeak("No sheriff found")
 			end
+		elseif targetName == "random" then
+			local target = getRandomPlayer()
+			if target then
+				startSus(target, speed)
+				makeStandSpeak("Sussing random player "..target.Name)
+			else
+				makeStandSpeak("No random player found")
+			end
 		else
 			local target = findTarget(table.concat(args, " ", 2))
 			if target then
@@ -1088,7 +1175,17 @@ local function processCommand(speaker, message)
 	elseif cmd == ".stopsus" then
 		stopSus()
 	elseif cmd == ".eliminate" then
-		eliminatePlayers()
+		if args[2] and args[2]:lower() == "random" then
+			local target = getRandomPlayer()
+			if target then
+				owners = {target}
+				eliminatePlayers()
+			else
+				makeStandSpeak("No random player found")
+			end
+		else
+			eliminatePlayers()
+		end
 	elseif cmd == ".commands" then
 		showCommands(speaker)
 	elseif cmd == ".disable" and args[2] then
@@ -1129,11 +1226,11 @@ if localPlayer then
 		makeStandSpeak(getgenv().Configuration.Msg)
 	end
 	setupChatListeners()
-	
+
 	local afkCheckConnection = RunService.Heartbeat:Connect(function()
 		checkAFKPlayers()
 	end)
-	
+
 	script.Destroying:Connect(function()
 		dismissStand()
 		stopSus()
