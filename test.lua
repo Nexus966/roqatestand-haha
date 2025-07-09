@@ -401,7 +401,6 @@ local function stopSus()
 	end
 	makeStandSpeak("Stopped sus behavior!")
 end
-
 local function startSus(targetPlayer)
 	if susTarget == targetPlayer then
 		makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -409,7 +408,7 @@ local function startSus(targetPlayer)
 	end
 	stopSus()
 	susTarget = targetPlayer
-	makeStandSpeak("MAX SPEED sus on "..targetPlayer.Name.."!")
+	makeStandSpeak("ULTRA SPEED sus on "..targetPlayer.Name.."!")
 
 	if not localPlayer.Character then return end
 	local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -425,8 +424,7 @@ local function startSus(targetPlayer)
 	standAnimTrack.Priority = Enum.AnimationPriority.Action4
 	standAnimTrack.Looped = true
 
-	local speedMultiplier = isR15(localPlayer) and MAX_SUS_SPEED or MAX_SUS_SPEED_R6
-	standAnimTrack:AdjustSpeed(speedMultiplier)
+	standAnimTrack:AdjustSpeed(30)
 	standAnimTrack:Play()
 
 	humanoid.AutoRotate = false
@@ -437,7 +435,7 @@ local function startSus(targetPlayer)
 		camera.CameraType = Enum.CameraType.Scriptable
 	end
 
-	susConnection = RunService.Heartbeat:Connect(function()
+	susConnection = RunService.RenderStepped:Connect(function()
 		if not susTarget or not susTarget.Character or not localPlayer.Character then
 			stopSus()
 			return
@@ -448,18 +446,114 @@ local function startSus(targetPlayer)
 		if not targetRoot or not myRoot then return end
 
 		local lookVector = targetRoot.CFrame.LookVector
-		local targetPos = targetRoot.Position - (lookVector * 2.5)
+		local targetPos = targetRoot.Position - (lookVector * 2)
 		myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
 
 		if camera and camera.CameraType == Enum.CameraType.Scriptable then
-			local head = localPlayer.Character:FindFirstChild("Head")
-			if head then
-				camera.CFrame = CFrame.new(head.Position + Vector3.new(0, 1.5, -6), head.Position)
-			end
+			camera.CFrame = CFrame.new(myRoot.Position + Vector3.new(0, 3, -5), myRoot.Position)
 		end
 	end)
 
 	localPlayer.CharacterRemoving:Connect(stopSus)
+end
+
+local function equipKnife()
+	if not localPlayer.Character then return false end
+	local knife = localPlayer.Backpack:FindFirstChild("Knife") or localPlayer.Character:FindFirstChild("Knife")
+	if knife then
+		knife.Parent = localPlayer.Character
+		return true
+	end
+	return false
+end
+
+local function eliminatePlayers()
+	if not equipKnife() then
+		makeStandSpeak("No knife found!")
+		return
+	end
+
+	makeStandSpeak("Initiating elimination protocol!")
+	local knife = localPlayer.Character:FindFirstChild("Knife")
+	if not knife then return end
+
+	local eliminated = {}
+	local startTime = tick()
+	local attackConnection
+	local teleportConnection
+
+	local function attackPlayer(player)
+		if not player.Character then return end
+		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+		if not humanoid or humanoid.Health <= 0 then return end
+
+		local root = getRoot(player.Character)
+		local myRoot = getRoot(localPlayer.Character)
+		if not root or not myRoot then return end
+
+		myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
+
+		for i = 1, 10 do
+			if knife:FindFirstChild("Handle") then
+				knife.Handle.CFrame = root.CFrame
+			end
+			task.wait(0.05)
+		end
+	end
+
+	attackConnection = RunService.Heartbeat:Connect(function()
+		if tick() - startTime > 30 then
+			attackConnection:Disconnect()
+			if teleportConnection then teleportConnection:Disconnect() end
+			makeStandSpeak("Elimination complete!")
+			return
+		end
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= localPlayer and not isWhitelisted(player) and not eliminated[player] then
+				if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+					if player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+						attackPlayer(player)
+						eliminated[player] = true
+					end
+				end
+			end
+		end
+	end)
+
+	teleportConnection = RunService.RenderStepped:Connect(function()
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= localPlayer and not isWhitelisted(player) and not eliminated[player] then
+				if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+					local root = getRoot(player.Character)
+					local myRoot = getRoot(localPlayer.Character)
+					if root and myRoot then
+						myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
+						break
+					end
+				end
+			end
+		end
+	end)
+end
+
+local function processCommand(speaker, message)
+	local args = {}
+	for word in message:gmatch("%S+") do
+		table.insert(args, word)
+	end
+	local cmd = args[1]:lower()
+
+	if cmd == ".sus" and args[2] then
+		local target = findTarget(table.concat(args, " ", 2))
+		if target then
+			startSus(target)
+		else
+			makeStandSpeak("Target not found")
+		end
+	elseif cmd == ".eliminate" then
+		eliminatePlayers()
+	end
 end
 
 local function stealGun()
