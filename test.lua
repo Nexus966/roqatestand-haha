@@ -432,38 +432,38 @@ local function startSus(targetPlayer, speed)
 	standAnimTrack = humanoid:LoadAnimation(anim)
 	standAnimTrack.Priority = Enum.AnimationPriority.Action4
 	standAnimTrack.Looped = true
-
-	standAnimTrack:AdjustSpeed(speed or (isR15(localPlayer) and 30 or 20)
+	
+	standAnimTrack:AdjustSpeed(speed or (isR15(localPlayer) and 30 or 20))
 	standAnimTrack:Play()
 
-	humanoid.AutoRotate = false
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+		humanoid.AutoRotate = false
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 
-	local camera = workspace.CurrentCamera
-	if camera then
-		camera.CameraType = Enum.CameraType.Scriptable
-	end
-
-	susConnection = RunService.RenderStepped:Connect(function()
-		if not susTarget or not susTarget.Character or not localPlayer.Character then
-			stopSus()
-			return
+		local camera = workspace.CurrentCamera
+		if camera then
+			camera.CameraType = Enum.CameraType.Scriptable
 		end
 
-		local targetRoot = getRoot(susTarget.Character)
-		local myRoot = getRoot(localPlayer.Character)
-		if not targetRoot or not myRoot then return end
+		susConnection = RunService.RenderStepped:Connect(function()
+			if not susTarget or not susTarget.Character or not localPlayer.Character then
+				stopSus()
+				return
+			end
 
-		local lookVector = targetRoot.CFrame.LookVector
-		local targetPos = targetRoot.Position - (lookVector * 2)
-		myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
+			local targetRoot = getRoot(susTarget.Character)
+			local myRoot = getRoot(localPlayer.Character)
+			if not targetRoot or not myRoot then return end
 
-		if camera and camera.CameraType == Enum.CameraType.Scriptable then
-			camera.CFrame = CFrame.new(myRoot.Position + Vector3.new(0, 3, -5), myRoot.Position)
-		end
-	end)
+			local lookVector = targetRoot.CFrame.LookVector
+			local targetPos = targetRoot.Position - (lookVector * 2)
+			myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
 
-	localPlayer.CharacterRemoving:Connect(stopSus)
+			if camera and camera.CameraType == Enum.CameraType.Scriptable then
+				camera.CFrame = CFrame.new(myRoot.Position + Vector3.new(0, 3, -5), myRoot.Position)
+			end
+		end)
+
+		localPlayer.CharacterRemoving:Connect(stopSus)
 end
 
 local function equipKnife()
@@ -651,13 +651,13 @@ end
 
 local function checkCommandAbuse(speaker)
 	if not isOwner(speaker) then return false end
-	
+
 	if isPlayerSuspended(speaker.Name) then
 		local remaining = suspendedPlayers[speaker.Name] - os.time()
 		makeStandSpeak(speaker.Name.." is suspended for "..remaining.." more seconds!")
 		return true
 	end
-	
+
 	local currentTime = os.time()
 	commandAbuseCount[speaker.Name] = commandAbuseCount[speaker.Name] or {count = 0, lastTime = 0, warnings = 0}
 	local abuseData = commandAbuseCount[speaker.Name]
@@ -726,15 +726,15 @@ local function getInnocentPlayers()
 	local sheriffs = findPlayersWithTool("Gun")
 	local murdererNames = {}
 	local sheriffNames = {}
-	
+
 	for _, player in ipairs(murderers) do
 		table.insert(murdererNames, isWhitelisted(player) and player.Name:sub(1,1) or player.Name)
 	end
-	
+
 	for _, player in ipairs(sheriffs) do
 		table.insert(sheriffNames, isWhitelisted(player) and player.Name:sub(1,1) or player.Name)
 	end
-	
+
 	if #murdererNames > 0 or #sheriffNames > 0 then
 		return "ALL Players but "..(#murdererNames > 0 and ("(Murderer: "..table.concat(murdererNames, ", ")..") ") or "")..(#sheriffNames > 0 and ("(Sheriff: "..table.concat(sheriffNames, ", ")..")") or "")
 	else
@@ -749,14 +749,14 @@ local function showCommands(speaker)
 		return
 	end
 	lastCommandsTime = currentTime
-	
+
 	local commandGroups = {
 		".follow (user/murder/sheriff), .protect (on/off), .say (message), .reset, .hide",
 		".dismiss, .summon, .fling (all/sheriff/murder/user), .stealgun, .whitelist (user)",
 		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff) (speed), .stopsus",
 		".eliminate, .commands, .disable (cmd), .enable (cmd)"
 	}
-	
+
 	for _, group in ipairs(commandGroups) do
 		makeStandSpeak(group)
 		task.wait(1)
@@ -767,7 +767,7 @@ local function respondToChat(speaker, message)
 	if speaker == localPlayer then return end
 	if tick() - lastResponseTime < 5 then return end
 	local msg = message:lower()
-	
+
 	if msg:find("afk") then
 		if speaker.Character then
 			local root = getRoot(speaker.Character)
@@ -779,7 +779,7 @@ local function respondToChat(speaker, message)
 			end
 		end
 	end
-	
+
 	for playerName, afkData in pairs(afkPlayers) do
 		if msg:find(playerName:lower():sub(1, 3)) then
 			makeStandSpeak(playerName.." is AFK")
@@ -787,25 +787,25 @@ local function respondToChat(speaker, message)
 			return
 		end
 	end
-	
+
 	if msg:find("who is innocent") or msg:find("whos innocent") then
 		makeStandSpeak(getInnocentPlayers())
 		lastResponseTime = tick()
 		return
 	end
-	
+
 	if msg:find("good boy") then
 		makeStandSpeak("Yes I'm a good boy!")
 		lastResponseTime = tick()
 		return
 	end
-	
+
 	if msg:find("roqate") then
 		makeStandSpeak("All glory to Roqate!")
 		lastResponseTime = tick()
 		return
 	end
-	
+
 	local responsePatterns = {
 		{
 			patterns = {"whats that", "what is that", "what is this", "what are you"},
@@ -898,7 +898,7 @@ local function respondToChat(speaker, message)
 			end
 		}
 	}
-	
+
 	for _, responseGroup in ipairs(responsePatterns) do
 		if stringContainsAny(msg, responseGroup.patterns) then
 			local response
@@ -1126,11 +1126,11 @@ if localPlayer then
 		makeStandSpeak(getgenv().Configuration.Msg)
 	end
 	setupChatListeners()
-	
+
 	local afkCheckConnection = RunService.Heartbeat:Connect(function()
 		checkAFKPlayers()
 	end)
-	
+
 	script.Destroying:Connect(function()
 		dismissStand()
 		stopSus()
