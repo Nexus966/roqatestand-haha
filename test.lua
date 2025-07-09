@@ -891,9 +891,9 @@ local function respondToChat(speaker, message)
 		{
 			patterns = {"whats that", "what is that", "what is this", "what are you"},
 			responses = {
-				"I am The World!",
-				"A manifestation of power!",
-				"My king's will made manifest!"
+				"I am The World! - Roqate made me",
+				"A manifestation of power! - Roqate made me",
+				"My king's will made manifest! - Roqate made me"
 			}
 		},
 		{
