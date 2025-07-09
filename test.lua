@@ -414,7 +414,7 @@ local function startSus(targetPlayer)
     standAnimTrack = humanoid:LoadAnimation(anim)
     standAnimTrack.Priority = Enum.AnimationPriority.Action
     standAnimTrack:Play()
-    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 1000 or 10000)
+    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 10 or 10)
     
     local lastLoopTime = tick()
     susConnection = RunService.Heartbeat:Connect(function()
@@ -427,11 +427,11 @@ local function startSus(targetPlayer)
         local myRoot = getRoot(localPlayer.Character)
         if not targetRoot or not myRoot then return end
         
-        local behindOffset = targetRoot.CFrame.LookVector * -3
+        local behindOffset = targetRoot.CFrame.LookVector * -1.5
         local targetPos = targetRoot.Position + behindOffset
         myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
         
-        if tick() - lastLoopTime > standAnimTrack.Length * 0.9 then
+        if tick() - lastLoopTime > 0.5 then
             standAnimTrack:Stop()
             standAnimTrack:Play()
             lastLoopTime = tick()
