@@ -36,6 +36,9 @@ local susConnection = nil
 local lastCommandTime = 0
 local commandDelay = 0.5
 local commandAbuseCount = {}
+local afkPlayers = {}
+local lastCommandsTime = 0
+local commandsDelay = 30
 
 local function isR15(player)
 	return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.RigType == Enum.HumanoidRigType.R15
@@ -401,6 +404,7 @@ local function stopSus()
 	end
 	makeStandSpeak("Stopped sus behavior!")
 end
+
 local function startSus(targetPlayer)
 	if susTarget == targetPlayer then
 		makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -424,7 +428,7 @@ local function startSus(targetPlayer)
 	standAnimTrack.Priority = Enum.AnimationPriority.Action4
 	standAnimTrack.Looped = true
 
-	standAnimTrack:AdjustSpeed(30)
+	standAnimTrack:AdjustSpeed(100)
 	standAnimTrack:Play()
 
 	humanoid.AutoRotate = false
@@ -467,6 +471,16 @@ local function equipKnife()
 	return false
 end
 
+local function simulateClick()
+	local knife = localPlayer.Character:FindFirstChild("Knife")
+	if knife and knife:FindFirstChild("Handle") then
+		local remote = knife:FindFirstChildOfClass("RemoteEvent") or knife:FindFirstChildOfClass("RemoteFunction")
+		if remote then
+			remote:FireServer(knife.Handle.CFrame)
+		end
+	end
+end
+
 local function eliminatePlayers()
 	if not equipKnife() then
 		makeStandSpeak("No knife found!")
@@ -492,12 +506,9 @@ local function eliminatePlayers()
 		if not root or not myRoot then return end
 
 		myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
-
-		for i = 1, 10 do
-			if knife:FindFirstChild("Handle") then
-				knife.Handle.CFrame = root.CFrame
-			end
-			task.wait(0.05)
+		for i = 1, 5 do
+			simulateClick()
+			task.wait(0.1)
 		end
 	end
 
@@ -537,25 +548,6 @@ local function eliminatePlayers()
 	end)
 end
 
-local function processCommand(speaker, message)
-	local args = {}
-	for word in message:gmatch("%S+") do
-		table.insert(args, word)
-	end
-	local cmd = args[1]:lower()
-
-	if cmd == ".sus" and args[2] then
-		local target = findTarget(table.concat(args, " ", 2))
-		if target then
-			startSus(target)
-		else
-			makeStandSpeak("Target not found")
-		end
-	elseif cmd == ".eliminate" then
-		eliminatePlayers()
-	end
-end
-
 local function stealGun()
 	if not localPlayer.Character then return end
 	local currentGun = localPlayer.Character:FindFirstChild("Gun") or localPlayer.Backpack:FindFirstChild("Gun")
@@ -581,7 +573,7 @@ local function stealGun()
 	if not myRoot then return end
 	makeStandSpeak("Found gun!")
 	myRoot.CFrame = CFrame.new(gunPosition + Vector3.new(0, 3, 0))
-	wait(0.5)
+	task.wait(0.5)
 	foundGun.Parent = localPlayer.Character
 	makeStandSpeak("Got gun!")
 end
@@ -647,20 +639,127 @@ local function checkCommandAbuse(speaker)
 	return false
 end
 
+local function checkAFKPlayers()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if afkPlayers[player.Name] then
+			local root = getRoot(player.Character)
+			if root then
+				local currentPos = root.Position
+				if (currentPos - afkPlayers[player.Name].position).Magnitude > 5 then
+					makeStandSpeak(player.Name.." is back from being afk (:")
+					afkPlayers[player.Name] = nil
+				end
+			end
+		end
+	end
+end
+
+local function getInnocentPlayers()
+	local innocent = {}
+	local murderers = findPlayersWithTool("Knife")
+	local sheriffs = findPlayersWithTool("Gun")
+	
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer then
+			local isMurderer = false
+			local isSheriff = false
+			
+			for _, murderer in ipairs(murderers) do
+				if murderer == player then
+					isMurderer = true
+					break
+				end
+			end
+			
+			for _, sheriff in ipairs(sheriffs) do
+				if sheriff == player then
+					isSheriff = true
+					break
+				end
+			end
+			
+			if not isMurderer and not isSheriff then
+				if isWhitelisted(player) then
+					table.insert(innocent, player.Name:sub(1,1))
+				else
+					table.insert(innocent, player.Name)
+				end
+			end
+		end
+	end
+	
+	return innocent
+end
+
+local function showCommands(speaker)
+	local currentTime = tick()
+	if currentTime - lastCommandsTime < commandsDelay then
+		makeStandSpeak("Please wait "..math.floor(commandsDelay - (currentTime - lastCommandsTime)).." seconds before using this command again!")
+		return
+	end
+	lastCommandsTime = currentTime
+	
+	local commandGroups = {
+		".follow (user/murder/sheriff), .protect (on/off), .say (message), .reset, .hide",
+		".dismiss, .summon, .fling (all/sheriff/murder/user), .stealgun, .whitelist (user)",
+		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff), .stopsus",
+		".eliminate, .commands"
+	}
+	
+	for _, group in ipairs(commandGroups) do
+		makeStandSpeak(group)
+		task.wait(1)
+	end
+end
+
 local function respondToChat(speaker, message)
 	if speaker == localPlayer then return end
 	if tick() - lastResponseTime < 5 then return end
 	local msg = message:lower()
+	
+	if msg:find("afk") then
+		if speaker.Character then
+			local root = getRoot(speaker.Character)
+			if root then
+				afkPlayers[speaker.Name] = {position = root.Position, time = tick()}
+				makeStandSpeak(speaker.Name.." is now AFK")
+				lastResponseTime = tick()
+				return
+			end
+		end
+	end
+	
+	for _, playerName in pairs(afkPlayers) do
+		if msg:find(playerName:lower()) then
+			makeStandSpeak(playerName.." is AFK")
+			lastResponseTime = tick()
+			return
+		end
+	end
+	
+	if msg:find("who is innocent") or msg:find("whos innocent") then
+		local innocent = getInnocentPlayers()
+		if #innocent > 0 then
+			makeStandSpeak("Innocent players: "..table.concat(innocent, ", "))
+		else
+			makeStandSpeak("No innocent players found!")
+		end
+		lastResponseTime = tick()
+		return
+	end
+	
 	if msg:find("good boy") then
 		makeStandSpeak("Yes I'm a good boy!")
 		lastResponseTime = tick()
 		return
 	end
+	
 	if msg:find("roqate") then
 		makeStandSpeak("All glory to Roqate!")
 		lastResponseTime = tick()
 		return
 	end
+	
 	local responsePatterns = {
 		{
 			patterns = {"whats that", "what is that", "what is this", "what are you"},
@@ -753,6 +852,7 @@ local function respondToChat(speaker, message)
 			end
 		}
 	}
+	
 	for _, responseGroup in ipairs(responsePatterns) do
 		if stringContainsAny(msg, responseGroup.patterns) then
 			local response
@@ -932,6 +1032,10 @@ local function processCommand(speaker, message)
 		end
 	elseif cmd == ".stopsus" then
 		stopSus()
+	elseif cmd == ".eliminate" then
+		eliminatePlayers()
+	elseif cmd == ".commands" then
+		showCommands(speaker)
 	end
 end
 
@@ -958,9 +1062,17 @@ if localPlayer then
 		makeStandSpeak(getgenv().Configuration.Msg)
 	end
 	setupChatListeners()
+	
+	local afkCheckConnection = RunService.Heartbeat:Connect(function()
+		checkAFKPlayers()
+	end)
+	
 	script.Destroying:Connect(function()
 		dismissStand()
 		stopSus()
+		if afkCheckConnection then
+			afkCheckConnection:Disconnect()
+		end
 	end)
 else
 	warn("LocalPlayer not found!")
