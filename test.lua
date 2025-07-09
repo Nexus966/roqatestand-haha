@@ -413,8 +413,8 @@ local function startSus(targetPlayer)
     anim.AnimationId = "rbxassetid://"..(isR15(localPlayer) and SUS_ANIMATION_R15 or SUS_ANIMATION_R6)
     standAnimTrack = humanoid:LoadAnimation(anim)
     standAnimTrack.Priority = Enum.AnimationPriority.Action
-    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 3 or 5) -- Speed set BEFORE play
-    standAnimTrack:Play() -- Now plays at adjusted speed immediately
+    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 4 or 6) 
+    standAnimTrack:Play() 
     
     local lastLoopTime = tick()
     susConnection = RunService.Heartbeat:Connect(function()
@@ -433,7 +433,7 @@ local function startSus(targetPlayer)
         
         if tick() - lastLoopTime > standAnimTrack.Length * 0.9 then
             standAnimTrack:Stop()
-            standAnimTrack:Play() -- Maintains the preset speed
+            standAnimTrack:Play() 
             lastLoopTime = tick()
         end
     end)
