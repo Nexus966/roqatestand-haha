@@ -168,7 +168,7 @@ local function getRoot(character)
 end
 
 local function flingPlayer(target)
-	if not target or not target.Character or target == localPlayer or isWhitelisted(target) then return end
+	if not target or not target.Character or target == localPlayer then return end
 	if yeetForce then yeetForce:Destroy() end
 	local targetRoot = getRoot(target.Character)
 	local myRoot = getRoot(localPlayer.Character)
@@ -256,7 +256,7 @@ local function startProtection()
 				local ownerRoot = getRoot(owner.Character)
 				if ownerRoot then
 					for _, player in ipairs(Players:GetPlayers()) do
-						if player ~= localPlayer and not isWhitelisted(player) and player.Character then
+						if player ~= localPlayer and player.Character then
 							local targetRoot = getRoot(player.Character)
 							if targetRoot and (targetRoot.Position - ownerRoot.Position).Magnitude < PROTECTION_RADIUS then
 								flingPlayer(player)
@@ -526,12 +526,10 @@ local function eliminatePlayers()
 		end
 
 		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= localPlayer and not isWhitelisted(player) and not eliminated[player] then
-				if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-					if player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-						attackPlayer(player)
-						eliminated[player] = true
-					end
+			if player ~= localPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+				if player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+					attackPlayer(player)
+					eliminated[player] = true
 				end
 			end
 		end
@@ -539,14 +537,12 @@ local function eliminatePlayers()
 
 	teleportConnection = RunService.RenderStepped:Connect(function()
 		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= localPlayer and not isWhitelisted(player) and not eliminated[player] then
-				if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-					local root = getRoot(player.Character)
-					local myRoot = getRoot(localPlayer.Character)
-					if root and myRoot then
-						myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
-						break
-					end
+			if player ~= localPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+				local root = getRoot(player.Character)
+				local myRoot = getRoot(localPlayer.Character)
+				if root and myRoot then
+					myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
+					break
 				end
 			end
 		end
@@ -623,11 +619,13 @@ local function isCommandDisabled(cmd)
 end
 
 local function suspendPlayer(playerName, duration)
+	if playerName == getgenv().Owners[1] then return end
 	suspendedPlayers[playerName] = os.time() + duration
 	makeStandSpeak(playerName.." has been suspended for "..duration.." seconds!")
 end
 
 local function isPlayerSuspended(playerName)
+	if playerName == getgenv().Owners[1] then return false end
 	if suspendedPlayers[playerName] then
 		if os.time() < suspendedPlayers[playerName] then
 			return true
@@ -651,6 +649,7 @@ end
 
 local function checkCommandAbuse(speaker)
 	if not isOwner(speaker) then return false end
+	if speaker.Name == getgenv().Owners[1] then return false end
 	
 	if isPlayerSuspended(speaker.Name) then
 		local remaining = suspendedPlayers[speaker.Name] - os.time()
@@ -934,7 +933,7 @@ local function processCommand(speaker, message)
 	end
 	local cmd = args[1]:lower()
 
-	if isCommandDisabled(cmd) then
+	if isCommandDisabled(cmd) and not (cmd == ".disable" or cmd == ".enable") and speaker.Name ~= getgenv().Owners[1] then
 		makeStandSpeak("This command is currently disabled!")
 		return
 	end
@@ -989,14 +988,14 @@ local function processCommand(speaker, message)
 		local targetName = args[2]:lower()
 		if targetName == "all" then
 			for _, player in ipairs(Players:GetPlayers()) do
-				if player ~= localPlayer and not isWhitelisted(player) then
+				if player ~= localPlayer then
 					spawn(function() flingPlayer(player) end)
 				end
 			end
 			makeStandSpeak("Launching everyone!")
 		elseif targetName == "murder" then
 			local target = findPlayerWithTool("Knife")
-			if target and not isWhitelisted(target) then
+			if target then
 				flingPlayer(target)
 				makeStandSpeak("Eliminating murderer!")
 			else
@@ -1004,7 +1003,7 @@ local function processCommand(speaker, message)
 			end
 		elseif targetName == "sheriff" then
 			local target = findPlayerWithTool("Gun")
-			if target and not isWhitelisted(target) then
+			if target then
 				flingPlayer(target)
 				makeStandSpeak("Taking down sheriff!")
 			else
@@ -1012,7 +1011,7 @@ local function processCommand(speaker, message)
 			end
 		else
 			local target = findTarget(table.concat(args, " ", 2))
-			if target and not isWhitelisted(target) then
+			if target then
 				flingPlayer(target)
 				makeStandSpeak("Target locked!")
 			else
@@ -1029,6 +1028,10 @@ local function processCommand(speaker, message)
 			makeStandSpeak("Player not found")
 		end
 	elseif cmd == ".addowner" and args[2] then
+		if not isMainOwner(speaker) then
+			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			return
+		end
 		local target = findTarget(table.concat(args, " ", 2))
 		if target then
 			addOwner(target.Name)
