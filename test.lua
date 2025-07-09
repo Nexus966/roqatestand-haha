@@ -43,7 +43,7 @@ local commandAbuseWarnings = {}
 local lastMovementCheck = {}
 local suspendedPlayers = {}
 local rudePlayers = {}
-local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my"}
+local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my","bum"}
 local randomTargets = {}
 
 local function isR15(player)
