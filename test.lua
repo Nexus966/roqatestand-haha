@@ -380,6 +380,22 @@ local function hideStand()
     end
     makeStandSpeak("Vanishing...")
 end
+
+local function stopSus()
+    if susConnection then
+        susConnection:Disconnect()
+        susConnection = nil
+    end
+    if standAnimTrack then
+        standAnimTrack:Stop()
+        standAnimTrack = nil
+    end
+    susTarget = nil
+    makeStandSpeak("Stopped sus behavior!")
+    if #owners > 0 and localPlayer.Character then
+        disablePlayerMovement()
+    end
+end
 local function startSus(targetPlayer)
     if susTarget == targetPlayer then
         makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -421,7 +437,6 @@ local function startSus(targetPlayer)
 
     localPlayer.CharacterRemoving:Connect(stopSus)
 end
-
 local function stealGun()
     if not localPlayer.Character then return end
     local currentGun = localPlayer.Character:FindFirstChild("Gun") or localPlayer.Backpack:FindFirstChild("Gun")
