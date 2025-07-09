@@ -39,6 +39,11 @@ local commandAbuseCount = {}
 local afkPlayers = {}
 local lastCommandsTime = 0
 local commandsDelay = 30
+local disabledCommands = {}
+local commandCooldowns = {}
+local commandAbuseWarnings = {}
+local lastMovementCheck = {}
+local suspendedPlayers = {}
 
 local function isR15(player)
 	return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.RigType == Enum.HumanoidRigType.R15
@@ -405,14 +410,14 @@ local function stopSus()
 	makeStandSpeak("Stopped sus behavior!")
 end
 
-local function startSus(targetPlayer)
+local function startSus(targetPlayer, speed)
 	if susTarget == targetPlayer then
 		makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
 		return
 	end
 	stopSus()
 	susTarget = targetPlayer
-	makeStandSpeak("ULTRA SPEED sus on "..targetPlayer.Name.."!")
+	makeStandSpeak("ULTRA SPEED sus on "..targetPlayer.Name..(speed and " at speed "..speed or "").."!")
 
 	if not localPlayer.Character then return end
 	local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -428,7 +433,7 @@ local function startSus(targetPlayer)
 	standAnimTrack.Priority = Enum.AnimationPriority.Action4
 	standAnimTrack.Looped = true
 
-	standAnimTrack:AdjustSpeed(100)
+	standAnimTrack:AdjustSpeed(speed or (isR15(localPlayer) and 30 or 20)
 	standAnimTrack:Play()
 
 	humanoid.AutoRotate = false
@@ -603,6 +608,37 @@ local function removeOwner(playerName)
 	makeStandSpeak("Removed "..playerName.." from owners!")
 end
 
+local function disableCommand(cmd)
+	disabledCommands[cmd:lower()] = true
+	makeStandSpeak("Command "..cmd.." has been disabled!")
+end
+
+local function enableCommand(cmd)
+	disabledCommands[cmd:lower()] = nil
+	makeStandSpeak("Command "..cmd.." has been enabled!")
+end
+
+local function isCommandDisabled(cmd)
+	return disabledCommands[cmd:lower()] == true
+end
+
+local function suspendPlayer(playerName, duration)
+	suspendedPlayers[playerName] = os.time() + duration
+	makeStandSpeak(playerName.." has been suspended for "..duration.." seconds!")
+end
+
+local function isPlayerSuspended(playerName)
+	if suspendedPlayers[playerName] then
+		if os.time() < suspendedPlayers[playerName] then
+			return true
+		else
+			suspendedPlayers[playerName] = nil
+			return false
+		end
+	end
+	return false
+end
+
 local function stringContainsAny(str, patterns)
 	str = str:lower()
 	for _, pattern in ipairs(patterns) do
@@ -615,25 +651,33 @@ end
 
 local function checkCommandAbuse(speaker)
 	if not isOwner(speaker) then return false end
-	local currentTime = tick()
-	commandAbuseCount[speaker.Name] = commandAbuseCount[speaker.Name] or {count = 0, lastTime = 0}
+	
+	if isPlayerSuspended(speaker.Name) then
+		local remaining = suspendedPlayers[speaker.Name] - os.time()
+		makeStandSpeak(speaker.Name.." is suspended for "..remaining.." more seconds!")
+		return true
+	end
+	
+	local currentTime = os.time()
+	commandAbuseCount[speaker.Name] = commandAbuseCount[speaker.Name] or {count = 0, lastTime = 0, warnings = 0}
 	local abuseData = commandAbuseCount[speaker.Name]
 
-	if currentTime - abuseData.lastTime < 1 then
+	if currentTime - abuseData.lastTime < 10 then
 		abuseData.count = abuseData.count + 1
-		if abuseData.count >= 1 then
-			local warningsLeft = 3 - abuseData.count
-			if warningsLeft > 0 then
-				makeStandSpeak("Warning "..speaker.Name..": You have "..warningsLeft.." more warning(s) before removal!")
-			else
-				removeOwner(speaker.Name)
-				makeStandSpeak(speaker.Name.." has been removed from admin for command abuse!")
+		if abuseData.count >= 2 then
+			abuseData.warnings = abuseData.warnings + 1
+			if abuseData.warnings >= 2 then
+				suspendPlayer(speaker.Name, 600)
 				commandAbuseCount[speaker.Name] = nil
+				return true
+			else
+				makeStandSpeak("Warning "..speaker.Name..": Don't abuse commands! Next warning will result in 10 minute suspension.")
+				return true
 			end
-			return true
 		end
 	else
 		abuseData.count = 0
+		abuseData.warnings = 0
 	end
 	abuseData.lastTime = currentTime
 	return false
@@ -641,13 +685,36 @@ end
 
 local function checkAFKPlayers()
 	for _, player in ipairs(Players:GetPlayers()) do
-		if afkPlayers[player.Name] then
+		if player.Character then
 			local root = getRoot(player.Character)
 			if root then
-				local currentPos = root.Position
-				if (currentPos - afkPlayers[player.Name].position).Magnitude > 5 then
-					makeStandSpeak(player.Name.." is back from being afk (:")
-					afkPlayers[player.Name] = nil
+				if not afkPlayers[player.Name] then
+					if not lastMovementCheck[player.Name] then
+						lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
+					else
+						if (root.Position - lastMovementCheck[player.Name].position).Magnitude < 1 then
+							if os.time() - lastMovementCheck[player.Name].time > 300 then
+								afkPlayers[player.Name] = {position = root.Position, time = os.time()}
+								makeStandSpeak("I think "..player.Name.." is AFK, they haven't moved for over 5 minutes!")
+							end
+						else
+							lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
+						end
+					end
+				else
+					if (root.Position - afkPlayers[player.Name].position).Magnitude > 5 then
+						local movedDistance = 0
+						for i = 1, 5 do
+							local currentPos = getRoot(player.Character).Position
+							movedDistance = movedDistance + (currentPos - lastMovementCheck[player.Name].position).Magnitude
+							lastMovementCheck[player.Name] = {position = currentPos, time = os.time()}
+							task.wait(0.5)
+						end
+						if movedDistance > 10 then
+							makeStandSpeak(player.Name.." is back from being AFK (:")
+							afkPlayers[player.Name] = nil
+						end
+					end
 				end
 			end
 		end
@@ -655,44 +722,28 @@ local function checkAFKPlayers()
 end
 
 local function getInnocentPlayers()
-	local innocent = {}
 	local murderers = findPlayersWithTool("Knife")
 	local sheriffs = findPlayersWithTool("Gun")
+	local murdererNames = {}
+	local sheriffNames = {}
 	
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= localPlayer then
-			local isMurderer = false
-			local isSheriff = false
-			
-			for _, murderer in ipairs(murderers) do
-				if murderer == player then
-					isMurderer = true
-					break
-				end
-			end
-			
-			for _, sheriff in ipairs(sheriffs) do
-				if sheriff == player then
-					isSheriff = true
-					break
-				end
-			end
-			
-			if not isMurderer and not isSheriff then
-				if isWhitelisted(player) then
-					table.insert(innocent, player.Name:sub(1,1))
-				else
-					table.insert(innocent, player.Name)
-				end
-			end
-		end
+	for _, player in ipairs(murderers) do
+		table.insert(murdererNames, isWhitelisted(player) and player.Name:sub(1,1) or player.Name)
 	end
 	
-	return innocent
+	for _, player in ipairs(sheriffs) do
+		table.insert(sheriffNames, isWhitelisted(player) and player.Name:sub(1,1) or player.Name)
+	end
+	
+	if #murdererNames > 0 or #sheriffNames > 0 then
+		return "ALL Players but "..(#murdererNames > 0 and ("(Murderer: "..table.concat(murdererNames, ", ")..") ") or "")..(#sheriffNames > 0 and ("(Sheriff: "..table.concat(sheriffNames, ", ")..")") or "")
+	else
+		return "ALL Players are innocent!"
+	end
 end
 
 local function showCommands(speaker)
-	local currentTime = tick()
+	local currentTime = os.time()
 	if currentTime - lastCommandsTime < commandsDelay then
 		makeStandSpeak("Please wait "..math.floor(commandsDelay - (currentTime - lastCommandsTime)).." seconds before using this command again!")
 		return
@@ -702,8 +753,8 @@ local function showCommands(speaker)
 	local commandGroups = {
 		".follow (user/murder/sheriff), .protect (on/off), .say (message), .reset, .hide",
 		".dismiss, .summon, .fling (all/sheriff/murder/user), .stealgun, .whitelist (user)",
-		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff), .stopsus",
-		".eliminate, .commands"
+		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff) (speed), .stopsus",
+		".eliminate, .commands, .disable (cmd), .enable (cmd)"
 	}
 	
 	for _, group in ipairs(commandGroups) do
@@ -721,7 +772,7 @@ local function respondToChat(speaker, message)
 		if speaker.Character then
 			local root = getRoot(speaker.Character)
 			if root then
-				afkPlayers[speaker.Name] = {position = root.Position, time = tick()}
+				afkPlayers[speaker.Name] = {position = root.Position, time = os.time()}
 				makeStandSpeak(speaker.Name.." is now AFK")
 				lastResponseTime = tick()
 				return
@@ -729,8 +780,8 @@ local function respondToChat(speaker, message)
 		end
 	end
 	
-	for _, playerName in pairs(afkPlayers) do
-		if msg:find(playerName:lower()) then
+	for playerName, afkData in pairs(afkPlayers) do
+		if msg:find(playerName:lower():sub(1, 3)) then
 			makeStandSpeak(playerName.." is AFK")
 			lastResponseTime = tick()
 			return
@@ -738,12 +789,7 @@ local function respondToChat(speaker, message)
 	end
 	
 	if msg:find("who is innocent") or msg:find("whos innocent") then
-		local innocent = getInnocentPlayers()
-		if #innocent > 0 then
-			makeStandSpeak("Innocent players: "..table.concat(innocent, ", "))
-		else
-			makeStandSpeak("No innocent players found!")
-		end
+		makeStandSpeak(getInnocentPlayers())
 		lastResponseTime = tick()
 		return
 	end
@@ -888,6 +934,11 @@ local function processCommand(speaker, message)
 	end
 	local cmd = args[1]:lower()
 
+	if isCommandDisabled(cmd) then
+		makeStandSpeak("This command is currently disabled!")
+		return
+	end
+
 	if cmd == ".follow" and args[2] then
 		local targetName = args[2]:lower()
 		if targetName == "murder" then
@@ -1008,24 +1059,25 @@ local function processCommand(speaker, message)
 		end
 	elseif cmd == ".sus" and args[2] then
 		local targetName = args[2]:lower()
+		local speed = tonumber(args[3])
 		if targetName == "murder" then
 			local target = findPlayerWithTool("Knife")
 			if target then
-				startSus(target)
+				startSus(target, speed)
 			else
 				makeStandSpeak("No murderer found")
 			end
 		elseif targetName == "sheriff" then
 			local target = findPlayerWithTool("Gun")
 			if target then
-				startSus(target)
+				startSus(target, speed)
 			else
 				makeStandSpeak("No sheriff found")
 			end
 		else
 			local target = findTarget(table.concat(args, " ", 2))
 			if target then
-				startSus(target)
+				startSus(target, speed)
 			else
 				makeStandSpeak("Target not found")
 			end
@@ -1036,6 +1088,18 @@ local function processCommand(speaker, message)
 		eliminatePlayers()
 	elseif cmd == ".commands" then
 		showCommands(speaker)
+	elseif cmd == ".disable" and args[2] then
+		if not isMainOwner(speaker) then
+			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			return
+		end
+		disableCommand(args[2])
+	elseif cmd == ".enable" and args[2] then
+		if not isMainOwner(speaker) then
+			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			return
+		end
+		enableCommand(args[2])
 	end
 end
 
