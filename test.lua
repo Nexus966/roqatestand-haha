@@ -408,6 +408,23 @@ local function startSus(targetPlayer)
     if not localPlayer.Character then return end
     local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
+local function startSus(targetPlayer)
+    if susTarget == targetPlayer then
+        makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
+        return
+    end
+    stopSus()
+    susTarget = targetPlayer
+    makeStandSpeak("Initiating sus behavior on "..targetPlayer.Name.."!")
+
+    if not localPlayer.Character then return end
+    local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    -- Save original animation tracks to restore later
+    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+        track:Stop()
+    end
 
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://"..(isR15(localPlayer) and SUS_ANIMATION_R15 or SUS_ANIMATION_R6)
@@ -415,10 +432,16 @@ local function startSus(targetPlayer)
     standAnimTrack.Priority = Enum.AnimationPriority.Action4
     standAnimTrack.Looped = true
 
-    -- Increased speed multiplier (you can adjust these values)
-    local speedMultiplier = isR15(localPlayer) and 10 or 7  -- Changed from 5/3.5 to 10/7
+    -- Safe speed multipliers that won't break the camera
+    local speedMultiplier = isR15(localPlayer) and 6 or 4.5  -- Balanced values
     standAnimTrack:AdjustSpeed(speedMultiplier)
     standAnimTrack:Play()
+
+    -- Fix camera by forcing a reset
+    if workspace.CurrentCamera then
+        workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+        workspace.CurrentCamera.CameraSubject = humanoid
+    end
 
     susConnection = RunService.Heartbeat:Connect(function()
         if not susTarget or not susTarget.Character or not localPlayer.Character then
@@ -430,9 +453,11 @@ local function startSus(targetPlayer)
         local myRoot = getRoot(localPlayer.Character)
         if not targetRoot or not myRoot then return end
 
+        -- Smoother following with interpolation
         local lookVector = targetRoot.CFrame.LookVector
         local targetPos = targetRoot.Position - (lookVector * 3)
-        myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
+        local newCFrame = CFrame.new(targetPos, targetRoot.Position)
+        myRoot.CFrame = myRoot.CFrame:Lerp(newCFrame, 0.5) -- 0.5 = interpolation ratio (0-1)
     end)
 
     localPlayer.CharacterRemoving:Connect(stopSus)
