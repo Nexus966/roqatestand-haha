@@ -381,21 +381,6 @@ local function hideStand()
     makeStandSpeak("Vanishing...")
 end
 
-local function stopSus()
-    if susConnection then
-        susConnection:Disconnect()
-        susConnection = nil
-    end
-    if standAnimTrack then
-        standAnimTrack:Stop()
-        standAnimTrack = nil
-    end
-    susTarget = nil
-    makeStandSpeak("Stopped sus behavior!")
-    if #owners > 0 and localPlayer.Character then
-        disablePlayerMovement()
-    end
-end
 local function startSus(targetPlayer)
     if susTarget == targetPlayer then
         makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -409,21 +394,36 @@ local function startSus(targetPlayer)
     local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
 
+    -- Destroy previous animation track if exists
+    if standAnimTrack then
+        standAnimTrack:Stop()
+        standAnimTrack:Destroy()
+    end
+
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://"..(isR15(localPlayer) and SUS_ANIMATION_R15 or SUS_ANIMATION_R6)
     standAnimTrack = humanoid:LoadAnimation(anim)
     standAnimTrack.Priority = Enum.AnimationPriority.Action4
-    standAnimTrack.Looped = true
 
-    local speedMultiplier = isR15(localPlayer) and 10 or 3.5
+    -- Key changes for actual speed increase:
+    local speedMultiplier = isR15(localPlayer) and 8 or 5  -- Higher multipliers
     standAnimTrack:AdjustSpeed(speedMultiplier)
-    standAnimTrack:Play()
+    
+    -- Force reset animation time position each frame
+    local animTimePosition = 0
+    standAnimTrack:Play(0, 1, speedMultiplier)
 
-    susConnection = RunService.Heartbeat:Connect(function()
+    susConnection = RunService.Heartbeat:Connect(function(deltaTime)
         if not susTarget or not susTarget.Character or not localPlayer.Character then
             stopSus()
             return
         end
+
+        -- Manually advance animation
+        animTimePosition = animTimePosition + (deltaTime * speedMultiplier)
+        standAnimTrack:AdjustSpeed(0) -- Pause
+        standAnimTrack.TimePosition = animTimePosition % standAnimTrack.Length
+        standAnimTrack:AdjustSpeed(speedMultiplier) -- Resume
 
         local targetRoot = getRoot(susTarget.Character)
         local myRoot = getRoot(localPlayer.Character)
