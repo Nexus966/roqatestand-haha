@@ -43,7 +43,7 @@ local commandAbuseWarnings = {}
 local lastMovementCheck = {}
 local suspendedPlayers = {}
 local rudePlayers = {}
-local rudePhrases = {"pmo", "sybau", "syfm", "die", "fat", "idc", "shut up"}
+local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my"}
 local randomTargets = {}
 
 local function isR15(player)
@@ -184,28 +184,57 @@ local function getRoot(character)
 end
 
 local function flingPlayer(target)
-	if not target or not target.Character or target == localPlayer then return end
+	if not target or target == localPlayer then return end
 	if yeetForce then yeetForce:Destroy() end
-	local targetRoot = getRoot(target.Character)
-	local myRoot = getRoot(localPlayer.Character)
-	if not targetRoot or not myRoot then return end
-	yeetForce = Instance.new('BodyThrust', myRoot)
-	yeetForce.Force = Vector3.new(9999,9999,9999)
-	yeetForce.Name = "YeetForce"
-	flinging = true
-	makeStandSpeak("Target acquired!")
-	spawn(function()
-		repeat
+	
+	local function findAndFling()
+		if not target or not target.Character then return end
+		local targetRoot = getRoot(target.Character)
+		local myRoot = getRoot(localPlayer.Character)
+		if not targetRoot or not myRoot then return end
+		
+		yeetForce = Instance.new('BodyThrust', myRoot)
+		yeetForce.Force = Vector3.new(9999,9999,9999)
+		yeetForce.Name = "YeetForce"
+		flinging = true
+		makeStandSpeak("Target acquired!")
+		
+		local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+		if not humanoid then return end
+		
+		local lastPosition = targetRoot.Position
+		local lastCheck = os.time()
+		
+		while flinging and target.Character and humanoid and humanoid.Health > 0 do
+			if not target.Character:FindFirstChild("HumanoidRootPart") then
+				target.Character:WaitForChild("HumanoidRootPart", 5)
+			end
+			targetRoot = getRoot(target.Character)
+			myRoot = getRoot(localPlayer.Character)
+			if not targetRoot or not myRoot then break end
+			
 			myRoot.CFrame = targetRoot.CFrame
 			yeetForce.Location = targetRoot.Position
+			
+			if os.time() - lastCheck > 1 then
+				if (targetRoot.Position - lastPosition).Magnitude < 1 then
+					break
+				end
+				lastPosition = targetRoot.Position
+				lastCheck = os.time()
+			end
+			
 			RunService.Heartbeat:wait()
-		until not target.Character:FindFirstChild("Head") or not flinging
+		end
+		
 		if yeetForce then
 			yeetForce:Destroy()
 			yeetForce = nil
 		end
 		flinging = false
-	end)
+	end
+	
+	spawn(findAndFling)
 end
 
 local function findPlayerWithTool(toolName)
@@ -716,25 +745,22 @@ local function checkAFKPlayers()
 								afkPlayers[player.Name] = {position = root.Position, time = os.time()}
 								makeStandSpeak("I think "..player.Name.." is AFK, they haven't moved for over 5 minutes!")
 							end
-						elseif distance > 50 then
-							lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
 						else
-							local movementSmoothness = 0
-							for i = 1, 5 do
-								local currentPos = getRoot(player.Character).Position
-								movementSmoothness = movementSmoothness + (currentPos - lastMovementCheck[player.Name].position).Magnitude
-								lastMovementCheck[player.Name] = {position = currentPos, time = os.time()}
-								task.wait(0.1)
-							end
-							if movementSmoothness > 10 and movementSmoothness < 50 then
-								if afkPlayers[player.Name] then
-									makeStandSpeak(player.Name.." is back from being AFK (:")
-									afkPlayers[player.Name] = nil
-								end
-							else
-								lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
+							lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
+							if afkPlayers[player.Name] then
+								makeStandSpeak(player.Name.." is back from being AFK (:")
+								afkPlayers[player.Name] = nil
 							end
 						end
+					end
+				else
+					local currentPos = getRoot(player.Character).Position
+					local distance = (currentPos - afkPlayers[player.Name].position).Magnitude
+					if distance > 5 then
+						makeStandSpeak(player.Name.." is back from being AFK (:")
+						afkPlayers[player.Name] = nil
+					else
+						afkPlayers[player.Name].position = currentPos
 					end
 				end
 			end
@@ -785,7 +811,7 @@ local function showCommands(speaker)
 end
 
 local function checkRudeMessage(speaker, message)
-	if speaker.Name == getgenv().Owners[1] then return end
+	if speaker.Name == getgenv().Owners[1] then return false end
 	local msg = message:lower()
 	for _, phrase in ipairs(rudePhrases) do
 		if msg:find(phrase) then
