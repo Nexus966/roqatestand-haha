@@ -16,6 +16,8 @@ local PROTECTION_RADIUS = 15
 local SUS_ANIMATION_R6 = "72042024"
 local SUS_ANIMATION_R15 = "698251653"
 local STAND_ANIMATION_ID = "10714347256"
+local MAX_SUS_SPEED = 25
+local MAX_SUS_SPEED_R6 = 18
 
 local owners = {}
 local heartbeatConnection = nil
@@ -391,11 +393,15 @@ local function stopSus()
         standAnimTrack = nil
     end
     susTarget = nil
+    if workspace.CurrentCamera then
+        workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+        if localPlayer.Character then
+            workspace.CurrentCamera.CameraSubject = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
+    end
     makeStandSpeak("Stopped sus behavior!")
-    if #owners > 0 and localPlayer.Character then
-        disablePlayerMovement()
-    end
 end
+
 local function startSus(targetPlayer)
     if susTarget == targetPlayer then
         makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
@@ -403,25 +409,12 @@ local function startSus(targetPlayer)
     end
     stopSus()
     susTarget = targetPlayer
-    makeStandSpeak("Initiating sus behavior on "..targetPlayer.Name.."!")
-
-    if not localPlayer.Character then return end
-    local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-local function startSus(targetPlayer)
-    if susTarget == targetPlayer then
-        makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
-        return
-    end
-    stopSus()
-    susTarget = targetPlayer
-    makeStandSpeak("Initiating sus behavior on "..targetPlayer.Name.."!")
+    makeStandSpeak("MAX SPEED sus on "..targetPlayer.Name.."!")
 
     if not localPlayer.Character then return end
     local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
 
-    -- Save original animation tracks to restore later
     for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
         track:Stop()
     end
@@ -432,15 +425,16 @@ local function startSus(targetPlayer)
     standAnimTrack.Priority = Enum.AnimationPriority.Action4
     standAnimTrack.Looped = true
 
-    -- Safe speed multipliers that won't break the camera
-    local speedMultiplier = isR15(localPlayer) and 6 or 4.5  -- Balanced values
+    local speedMultiplier = isR15(localPlayer) and MAX_SUS_SPEED or MAX_SUS_SPEED_R6
     standAnimTrack:AdjustSpeed(speedMultiplier)
     standAnimTrack:Play()
 
-    -- Fix camera by forcing a reset
-    if workspace.CurrentCamera then
-        workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-        workspace.CurrentCamera.CameraSubject = humanoid
+    humanoid.AutoRotate = false
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.CameraType = Enum.CameraType.Scriptable
     end
 
     susConnection = RunService.Heartbeat:Connect(function()
@@ -453,15 +447,21 @@ local function startSus(targetPlayer)
         local myRoot = getRoot(localPlayer.Character)
         if not targetRoot or not myRoot then return end
 
-        -- Smoother following with interpolation
         local lookVector = targetRoot.CFrame.LookVector
-        local targetPos = targetRoot.Position - (lookVector * 3)
-        local newCFrame = CFrame.new(targetPos, targetRoot.Position)
-        myRoot.CFrame = myRoot.CFrame:Lerp(newCFrame, 0.5) -- 0.5 = interpolation ratio (0-1)
+        local targetPos = targetRoot.Position - (lookVector * 2.5)
+        myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
+
+        if camera and camera.CameraType == Enum.CameraType.Scriptable then
+            local head = localPlayer.Character:FindFirstChild("Head")
+            if head then
+                camera.CFrame = CFrame.new(head.Position + Vector3.new(0, 1.5, -6), head.Position)
+            end
+        end
     end)
 
     localPlayer.CharacterRemoving:Connect(stopSus)
 end
+
 local function stealGun()
     if not localPlayer.Character then return end
     local currentGun = localPlayer.Character:FindFirstChild("Gun") or localPlayer.Backpack:FindFirstChild("Gun")
@@ -853,7 +853,7 @@ local function setupChatListeners()
             respondToChat(player, message)
             processCommand(player, message)
         end)
-    end)
+    end
 end
 
 if localPlayer then
