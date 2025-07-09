@@ -43,7 +43,7 @@ local commandAbuseWarnings = {}
 local lastMovementCheck = {}
 local suspendedPlayers = {}
 local rudePlayers = {}
-local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "idc", "shut"}
+local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my"}
 local randomTargets = {}
 
 local function isR15(player)
@@ -186,25 +186,25 @@ end
 local function flingPlayer(target)
 	if not target or target == localPlayer then return end
 	if yeetForce then yeetForce:Destroy() end
-	
+
 	local function findAndFling()
 		if not target or not target.Character then return end
 		local targetRoot = getRoot(target.Character)
 		local myRoot = getRoot(localPlayer.Character)
 		if not targetRoot or not myRoot then return end
-		
+
 		yeetForce = Instance.new('BodyThrust', myRoot)
 		yeetForce.Force = Vector3.new(9999,9999,9999)
 		yeetForce.Name = "YeetForce"
 		flinging = true
 		makeStandSpeak("Target acquired!")
-		
+
 		local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
 		if not humanoid then return end
-		
+
 		local lastPosition = targetRoot.Position
 		local lastCheck = os.time()
-		
+
 		while flinging and target.Character and humanoid and humanoid.Health > 0 do
 			if not target.Character:FindFirstChild("HumanoidRootPart") then
 				target.Character:WaitForChild("HumanoidRootPart", 5)
@@ -212,10 +212,10 @@ local function flingPlayer(target)
 			targetRoot = getRoot(target.Character)
 			myRoot = getRoot(localPlayer.Character)
 			if not targetRoot or not myRoot then break end
-			
+
 			myRoot.CFrame = targetRoot.CFrame
 			yeetForce.Location = targetRoot.Position
-			
+
 			if os.time() - lastCheck > 1 then
 				if (targetRoot.Position - lastPosition).Magnitude < 1 then
 					break
@@ -223,17 +223,17 @@ local function flingPlayer(target)
 				lastPosition = targetRoot.Position
 				lastCheck = os.time()
 			end
-			
+
 			RunService.Heartbeat:wait()
 		end
-		
+
 		if yeetForce then
 			yeetForce:Destroy()
 			yeetForce = nil
 		end
 		flinging = false
 	end
-	
+
 	spawn(findAndFling)
 end
 
@@ -923,9 +923,9 @@ local function respondToChat(speaker, message)
 		{
 			patterns = {"script", "code", "made this", "who made"},
 			responses = {
-				"My existence is by royal decree!",
-				"Only the worthy command such power!",
-				"My king's will sustains me!"
+				"My existence is by royal decree! - Roqate",
+				"Only the worthy command such power! - Roqate",
+				"My king's will sustains me! - Roqate"
 			}
 		},
 		{
