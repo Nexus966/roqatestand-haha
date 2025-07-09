@@ -392,18 +392,28 @@ local function startSus(targetPlayer)
     if not localPlayer.Character then return end
     local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
+    local function startSus(targetPlayer)
+    if susTarget == targetPlayer then
+        makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
+        return
+    end
+    stopSus()
+    susTarget = targetPlayer
+    makeStandSpeak("Initiating sus behavior on "..targetPlayer.Name.."!")
+    
+    if not localPlayer.Character then return end
+    local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
     
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://"..(isR15(localPlayer) and SUS_ANIMATION_R15 or SUS_ANIMATION_R6)
     standAnimTrack = humanoid:LoadAnimation(anim)
-    standAnimTrack.Priority = Enum.AnimationPriority.Action4
+    standAnimTrack.Priority = Enum.AnimationPriority.Action
+    standAnimTrack.Looped = true
     
-    local speedMultiplier = isR15(localPlayer) and 10 or 15
+    local speedMultiplier = 5
     standAnimTrack:AdjustSpeed(speedMultiplier)
     standAnimTrack:Play()
-    
-    local animLength = standAnimTrack.Length / speedMultiplier
-    local lastLoopTime = tick()
     
     susConnection = RunService.Heartbeat:Connect(function()
         if not susTarget or not susTarget.Character or not localPlayer.Character then
@@ -418,18 +428,11 @@ local function startSus(targetPlayer)
         local lookVector = targetRoot.CFrame.LookVector
         local targetPos = targetRoot.Position - (lookVector * 3)
         myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
-        
-        if tick() - lastLoopTime > animLength * 0.9 then
-            standAnimTrack:Stop()
-            standAnimTrack:Play()
-            lastLoopTime = tick()
-        end
     end)
     
-    localPlayer.CharacterRemoving:Connect(function()
-        stopSus()
-    end)
+    localPlayer.CharacterRemoving:Connect(stopSus)
 end
+
 local function stealGun()
     if not localPlayer.Character then return end
     local currentGun = localPlayer.Character:FindFirstChild("Gun") or localPlayer.Backpack:FindFirstChild("Gun")
