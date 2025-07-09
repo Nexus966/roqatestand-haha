@@ -414,7 +414,7 @@ local function startSus(targetPlayer)
     standAnimTrack = humanoid:LoadAnimation(anim)
     standAnimTrack.Priority = Enum.AnimationPriority.Action
     standAnimTrack:Play()
-    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 2.2 or 2)
+    standAnimTrack:AdjustSpeed(isR15(localPlayer) and 1000 or 10000)
     
     local lastLoopTime = tick()
     susConnection = RunService.Heartbeat:Connect(function()
