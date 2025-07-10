@@ -221,32 +221,39 @@ local function flingPlayer(target)
 	if not target or target == localPlayer then return end
 	if yeetForce then yeetForce:Destroy() end
 
+	local startTime = tick()
+	local flingDuration = 10
+
 	local function continuousFling()
 		while activeCommand == "fling" and target and target.Parent do
-			if not target.Character then
-				target.CharacterAdded:Wait()
+			if not target.Character or not target.Character.Parent then
+				break
 			end
 
 			local targetRoot = getRoot(target.Character)
 			local myRoot = getRoot(localPlayer.Character)
 			if not targetRoot or not myRoot then
-				task.wait(1)
-				continue
+				break
 			end
 
-			yeetForce = Instance.new('BodyThrust', myRoot)
-			yeetForce.Force = Vector3.new(9999,9999,9999)
-			yeetForce.Name = "YeetForce"
-			flinging = true
+			if not yeetForce then
+				yeetForce = Instance.new('BodyThrust', myRoot)
+				yeetForce.Force = Vector3.new(9999,9999,9999)
+				yeetForce.Name = "YeetForce"
+				flinging = true
+			end
 
 			local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
 			if not humanoid or humanoid.Health <= 0 then
-				task.wait(1)
-				continue
+				break
 			end
 
 			myRoot.CFrame = targetRoot.CFrame
 			yeetForce.Location = targetRoot.Position
+
+			if tick() - startTime > flingDuration then
+				break
+			end
 
 			RunService.Heartbeat:Wait()
 		end
@@ -519,7 +526,7 @@ local function startSus(targetPlayer, speed)
 	standAnimTrack.Priority = Enum.AnimationPriority.Action4
 	standAnimTrack.Looped = true
 
-	standAnimTrack:AdjustSpeed(speed or (isR15(localPlayer) and 0.7 or 0.65))
+	standAnimTrack:AdjustSpeed(speed or (isR15(localPlayer) and 0.7 or 0.65)
 	if standAnimTrack then
 		standAnimTrack:Play()
 	end
@@ -770,18 +777,10 @@ local function getColorName(color)
 	return "Unknown"
 end
 
-local function describePlayer(targetType)
-    local target
-    if targetType == "murder" then
-        target = findPlayerWithTool("Knife")
-    elseif targetType == "sheriff" then
-        target = findPlayerWithTool("Gun")
-    else
-        return "Invalid target type! Use 'murder' or 'sheriff'"
-    end
-    
+local function describePlayer(targetName)
+    local target = findTarget(targetName)
     if not target then
-        return "No "..targetType.." found!"
+        return "Player not found!"
     end
     
     local color = "Unknown"
@@ -818,7 +817,7 @@ local function describePlayer(targetType)
         end
     end
     
-    local description = targetType:upper()..": "..target.Name.." | Color: "..color
+    local description = target.Name.." | Color: "..color
     
     if #clothingItems > 0 then
         description = description.." | Wearing: "..table.concat(clothingItems, ", ")
@@ -1384,12 +1383,7 @@ local function processCommand(speaker, message)
 		end
 		enableCommand(args[2])
 	elseif cmd == ".describe" and args[2] then
-		local targetType = args[2]:lower()
-		if targetType == "murder" or targetType == "sheriff" then
-			makeStandSpeak(describePlayer(targetType))
-		else
-			makeStandSpeak("Invalid target! Use 'murder' or 'sheriff'")
-		end
+		makeStandSpeak(describePlayer(table.concat(args, " ", 2)))
 	end
 end
 
