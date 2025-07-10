@@ -729,7 +729,7 @@ end
 
 local function getColorName(color)
 	local r, g, b = color.R * 255, color.G * 255, color.B * 255
-	
+
 	if r > 200 and g > 200 and b > 200 then return "White"
 	elseif r < 50 and g < 50 and b < 50 then return "Black"
 	elseif r > g + 50 and r > b + 50 then
@@ -753,64 +753,64 @@ local function getColorName(color)
 end
 
 local function describePlayer(targetType)
-    local target
-    if targetType == "murder" then
-        target = findPlayerWithTool("Knife")
-    elseif targetType == "sheriff" then
-        target = findPlayerWithTool("Gun")
-    else
-        return "Invalid target type! Use 'murder' or 'sheriff'"
-    end
-    
-    if not target then
-        return "No "..targetType.." found!"
-    end
-    
-    local color = "Unknown"
-    if target.Character then
-        local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            color = getColorName(humanoid.BodyColors.HeadColor3)
-        end
-    end
-    
-    local clothingItems = {}
-    if target.Character then
-        for _, item in ipairs(target.Character:GetChildren()) do
-            if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
-                local itemName = item.Name
-                if #itemName > 15 then
-                    itemName = itemName:match("%w+") or itemName:sub(1, 15)
-                end
-                table.insert(clothingItems, item.ClassName..": "..itemName)
-            end
-        end
-    end
-    
-    local accessories = {}
-    if target.Character then
-        for _, item in ipairs(target.Character:GetChildren()) do
-            if item:IsA("Accessory") then
-                local itemName = item.Name
-                if #itemName > 15 then
-                    itemName = itemName:match("%w+") or itemName:sub(1, 15)
-                end
-                table.insert(accessories, "Accessory: "..itemName)
-            end
-        end
-    end
-    
-    local description = targetType:upper()..": "..target.Name.." | Color: "..color
-    
-    if #clothingItems > 0 then
-        description = description.." | Wearing: "..table.concat(clothingItems, ", ")
-    end
-    
-    if #accessories > 0 then
-        description = description.." | Accessories: "..table.concat(accessories, ", ")
-    end
-    
-    return description
+	local target
+	if targetType == "murder" then
+		target = findPlayerWithTool("Knife")
+	elseif targetType == "sheriff" then
+		target = findPlayerWithTool("Gun")
+	else
+		return "Invalid target type! Use 'murder' or 'sheriff'"
+	end
+
+	if not target then
+		return "No "..targetType.." found!"
+	end
+
+	local color = "Unknown"
+	if target.Character then
+		local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			color = getColorName(humanoid.BodyColors.HeadColor3)
+		end
+	end
+
+	local clothingItems = {}
+	if target.Character then
+		for _, item in ipairs(target.Character:GetChildren()) do
+			if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
+				local itemName = item.Name
+				if #itemName > 15 then
+					itemName = itemName:match("%w+") or itemName:sub(1, 15)
+				end
+				table.insert(clothingItems, item.ClassName..": "..itemName)
+			end
+		end
+	end
+
+	local accessories = {}
+	if target.Character then
+		for _, item in ipairs(target.Character:GetChildren()) do
+			if item:IsA("Accessory") then
+				local itemName = item.Name
+				if #itemName > 15 then
+					itemName = itemName:match("%w+") or itemName:sub(1, 15)
+				end
+				table.insert(accessories, "Accessory: "..itemName)
+			end
+		end
+	end
+
+	local description = targetType:upper()..": "..target.Name.." | Color: "..color
+
+	if #clothingItems > 0 then
+		description = description.." | Wearing: "..table.concat(clothingItems, ", ")
+	end
+
+	if #accessories > 0 then
+		description = description.." | Accessories: "..table.concat(accessories, ", ")
+	end
+
+	return description
 end
 
 local function checkCommandAbuse(speaker)
