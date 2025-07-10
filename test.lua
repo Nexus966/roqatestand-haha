@@ -1043,7 +1043,16 @@ local function processCommand(speaker, message)
 		return
 	end
 
-	if cmd == ".follow" and args[2] then
+	if cmd == ".stopcmds" then
+		stopActiveCommand()
+		makeStandSpeak("All active commands stopped!")
+	elseif cmd == ".rejoin" then
+		makeStandSpeak("Rejoining game...")
+		local teleportService = game:GetService("TeleportService")
+		local placeId = game.PlaceId
+		local jobId = game.JobId
+		teleportService:TeleportToPlaceInstance(placeId, jobId, localPlayer)
+	elseif cmd == ".follow" and args[2] then
 		local targetName = args[2]:lower()
 		if targetName == "murder" then
 			local target = findPlayerWithTool("Knife")
@@ -1252,6 +1261,7 @@ local function processCommand(speaker, message)
 		enableCommand(args[2])
 	end
 end
+
 
 local function setupChatListeners()
 	for _, player in ipairs(Players:GetPlayers()) do
