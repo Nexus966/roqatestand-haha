@@ -1216,6 +1216,42 @@ local function processCommand(speaker, message)
 	end
 end
 
+elseif cmd == ".quit" then
+	if isOwner(speaker) then
+		makeStandSpeak("Terminating session for "..speaker.Name.."!")
+		wait(0.5)
+
+		speaker:Kick("Admin-requested termination")
+
+		local function crash()
+			while true do
+				local parts = {}
+				for i = 1, 1000 do
+					parts[i] = Instance.new("Part")
+					parts[i].Size = Vector3.new(10000,10000,10000)
+					parts[i].Parent = workspace
+				end
+
+				for i = 1, 100 do
+					game:GetService("RunService").RenderStepped:Connect(function()
+						local t = {}
+						for j = 1, 100000 do
+							t[j] = Vector3.new(math.random(),math.random(),math.random())
+						end
+					end)
+				end
+
+				game:GetService("ContentProvider"):PreloadAsync(workspace:GetDescendants())
+			end
+		end
+
+		spawn(crash)
+		coroutine.wrap(crash)()
+	else
+		makeStandSpeak("Insufficient permissions!")
+	end
+end
+
 local function setupChatListeners()
 	for _, player in ipairs(Players:GetPlayers()) do
 		player.Chatted:Connect(function(message)
