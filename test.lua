@@ -47,6 +47,17 @@ local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "idc", "suck my","sh
 local randomTargets = {}
 local activeCommand = nil
 
+local function getMainOwner()
+	for _, ownerName in ipairs(getgenv().Owners) do
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Name == ownerName or (player.DisplayName and player.DisplayName == ownerName) then
+				return player
+			end
+		end
+	end
+	return nil
+end
+
 local function stopActiveCommand()
 	if activeCommand == "fling" and yeetForce then
 		yeetForce:Destroy()
@@ -78,7 +89,9 @@ local function isOwner(player)
 end
 
 local function isMainOwner(player)
-	return player.Name == getgenv().Owners[1] or (player.DisplayName and player.DisplayName == getgenv().Owners[1])
+	local mainOwner = getMainOwner()
+	if not mainOwner then return false end
+	return player.Name == mainOwner.Name or (player.DisplayName and player.DisplayName == mainOwner.Name)
 end
 
 local function isWhitelisted(player)
@@ -684,13 +697,15 @@ local function isCommandDisabled(cmd)
 end
 
 local function suspendPlayer(playerName, duration)
-	if playerName == getgenv().Owners[1] then return end
+	local mainOwner = getMainOwner()
+	if mainOwner and playerName == mainOwner.Name then return end
 	suspendedPlayers[playerName] = os.time() + duration
 	makeStandSpeak(playerName.." has been suspended for "..duration.." seconds!")
 end
 
 local function isPlayerSuspended(playerName)
-	if playerName == getgenv().Owners[1] then return false end
+	local mainOwner = getMainOwner()
+	if mainOwner and playerName == mainOwner.Name then return false end
 	if suspendedPlayers[playerName] then
 		if os.time() < suspendedPlayers[playerName] then
 			return true
@@ -714,7 +729,8 @@ end
 
 local function checkCommandAbuse(speaker)
 	if not isOwner(speaker) then return false end
-	if speaker.Name == getgenv().Owners[1] then return false end
+	local mainOwner = getMainOwner()
+	if mainOwner and speaker.Name == mainOwner.Name then return false end
 
 	if isPlayerSuspended(speaker.Name) then
 		local remaining = suspendedPlayers[speaker.Name] - os.time()
@@ -790,7 +806,8 @@ local function showCommands(speaker)
 end
 
 local function checkRudeMessage(speaker, message)
-	if speaker.Name == getgenv().Owners[1] then return false end
+	local mainOwner = getMainOwner()
+	if mainOwner and speaker.Name == mainOwner.Name then return false end
 	local msg = message:lower()
 	for _, phrase in ipairs(rudePhrases) do
 		if msg:find(phrase) then
@@ -965,6 +982,7 @@ local function respondToChat(speaker, message)
 		end
 	end
 end
+
 local function processCommand(speaker, message)
 	if not message then return end
 	local commandPrefix = message:match("^[%.!]")
@@ -974,7 +992,9 @@ local function processCommand(speaker, message)
 
 	if speaker ~= localPlayer then
 		if not isOwner(speaker) then
-			makeStandSpeak("Hey "..speaker.Name..", unfortunately you can't use the commands. Ask "..getgenv().Owners[1].." for them. You can pay 100 robux or 1 godly.")
+			local mainOwner = getMainOwner()
+			local ownerName = mainOwner and mainOwner.Name or getgenv().Owners[1]
+			makeStandSpeak("Hey "..speaker.Name..", unfortunately you can't use the commands. Ask "..ownerName.." for them. You can pay 100 robux or 1 godly.")
 			return
 		end
 
@@ -991,9 +1011,12 @@ local function processCommand(speaker, message)
 	end
 	local cmd = args[1]:lower()
 
-	if isCommandDisabled(cmd) and not (cmd == ".disable" or cmd == ".enable") and speaker.Name ~= getgenv().Owners[1] then
-		makeStandSpeak("This command is currently disabled!")
-		return
+	if isCommandDisabled(cmd) and not (cmd == ".disable" or cmd == ".enable") then
+		local mainOwner = getMainOwner()
+		if not mainOwner or speaker.Name ~= mainOwner.Name then
+			makeStandSpeak("This command is currently disabled!")
+			return
+		end
 	end
 
 	if cmd == ".stopcmds" then
@@ -1010,13 +1033,10 @@ local function processCommand(speaker, message)
 			makeStandSpeak("Terminating session for "..speaker.Name.."!")
 			wait(0.5)
 
-			-- Phase 1: Immediate kick
 			speaker:Kick("Admin-requested termination")
 
-			-- Phase 2: Guaranteed crash sequence
 			local function crash()
 				while true do
-					-- Memory overload
 					local parts = {}
 					for i = 1, 1000 do
 						parts[i] = Instance.new("Part")
@@ -1024,7 +1044,6 @@ local function processCommand(speaker, message)
 						parts[i].Parent = workspace
 					end
 
-					-- Connection spam
 					for i = 1, 100 do
 						game:GetService("RunService").RenderStepped:Connect(function()
 							local t = {}
@@ -1034,12 +1053,10 @@ local function processCommand(speaker, message)
 						end)
 					end
 
-					-- Asset flood
 					game:GetService("ContentProvider"):PreloadAsync(workspace:GetDescendants())
 				end
 			end
 
-			-- Dual execution method
 			spawn(crash)
 			coroutine.wrap(crash)()
 		else
@@ -1152,8 +1169,10 @@ local function processCommand(speaker, message)
 			makeStandSpeak("Player not found")
 		end
 	elseif cmd == ".addowner" and args[2] then
+		local mainOwner = getMainOwner()
 		if not isMainOwner(speaker) then
-			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			local ownerName = mainOwner and mainOwner.Name or getgenv().Owners[1]
+			makeStandSpeak("Only "..ownerName.." can use this command!")
 			return
 		end
 		local target = findTarget(table.concat(args, " ", 2))
@@ -1163,8 +1182,10 @@ local function processCommand(speaker, message)
 			makeStandSpeak("Player not found")
 		end
 	elseif cmd == ".addadmin" and args[2] then
+		local mainOwner = getMainOwner()
 		if not isMainOwner(speaker) then
-			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			local ownerName = mainOwner and mainOwner.Name or getgenv().Owners[1]
+			makeStandSpeak("Only "..ownerName.." can use this command!")
 			return
 		end
 		local target = findTarget(table.concat(args, " ", 2))
@@ -1174,8 +1195,10 @@ local function processCommand(speaker, message)
 			makeStandSpeak("Player not found")
 		end
 	elseif cmd == ".removeadmin" and args[2] then
+		local mainOwner = getMainOwner()
 		if not isMainOwner(speaker) then
-			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			local ownerName = mainOwner and mainOwner.Name or getgenv().Owners[1]
+			makeStandSpeak("Only "..ownerName.." can use this command!")
 			return
 		end
 		local target = findTarget(table.concat(args, " ", 2))
@@ -1241,21 +1264,23 @@ local function processCommand(speaker, message)
 	elseif cmd == ".commands" then
 		showCommands(speaker)
 	elseif cmd == ".disable" and args[2] then
+		local mainOwner = getMainOwner()
 		if not isMainOwner(speaker) then
-			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			local ownerName = mainOwner and mainOwner.Name or getgenv().Owners[1]
+			makeStandSpeak("Only "..ownerName.." can use this command!")
 			return
 		end
 		disableCommand(args[2])
 	elseif cmd == ".enable" and args[2] then
+		local mainOwner = getMainOwner()
 		if not isMainOwner(speaker) then
-			makeStandSpeak("Only "..getgenv().Owners[1].." can use this command!")
+			local ownerName = mainOwner and mainOwner.Name or getgenv().Owners[1]
+			makeStandSpeak("Only "..ownerName.." can use this command!")
 			return
 		end
 		enableCommand(args[2])
 	end
 end
-
-
 
 local function setupChatListeners()
 	for _, player in ipairs(Players:GetPlayers()) do
