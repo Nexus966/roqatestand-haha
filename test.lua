@@ -747,44 +747,6 @@ local function checkCommandAbuse(speaker)
 	return false
 end
 
-local function checkAFKPlayers()
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player.Character then
-			local root = getRoot(player.Character)
-			if root then
-				if not afkPlayers[player.Name] then
-					if not lastMovementCheck[player.Name] then
-						lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
-					else
-						local distance = (root.Position - lastMovementCheck[player.Name].position).Magnitude
-						if distance < 1 then
-							if os.time() - lastMovementCheck[player.Name].time > 300 then
-								afkPlayers[player.Name] = {position = root.Position, time = os.time()}
-								makeStandSpeak("I think "..player.Name.." is AFK, they haven't moved for over 5 minutes!")
-							end
-						else
-							lastMovementCheck[player.Name] = {position = root.Position, time = os.time()}
-							if afkPlayers[player.Name] then
-								makeStandSpeak(player.Name.." is back from being AFK (:")
-								afkPlayers[player.Name] = nil
-							end
-						end
-					end
-				else
-					local currentPos = getRoot(player.Character).Position
-					local distance = (currentPos - afkPlayers[player.Name].position).Magnitude
-					if distance > 5 then
-						makeStandSpeak(player.Name.." is back from being AFK (:")
-						afkPlayers[player.Name] = nil
-					else
-						afkPlayers[player.Name].position = currentPos
-					end
-				end
-			end
-		end
-	end
-end
-
 local function getInnocentPlayers()
 	local murderers = findPlayersWithTool("Knife")
 	local sheriffs = findPlayersWithTool("Gun")
@@ -818,7 +780,7 @@ local function showCommands(speaker)
 		".follow (user/murder/sheriff/random), .protect (on/off), .say (message), .reset, .hide",
 		".dismiss, .summon, .fling (all/sheriff/murder/user/random), .stealgun, .whitelist (user)",
 		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff/random) (speed), .stopsus",
-		".eliminate (random), .win (user), .commands, .disable (cmd), .enable (cmd)"
+		".eliminate (random), .win (user), .commands, .disable (cmd), .enable (cmd), .stopcmds, .rejoin"
 	}
 
 	for _, group in ipairs(commandGroups) do
@@ -866,24 +828,16 @@ local function respondToChat(speaker, message)
 
 	local msg = message:lower()
 
-	if msg:find("afk") then
-		if speaker.Character then
-			local root = getRoot(speaker.Character)
-			if root then
-				afkPlayers[speaker.Name] = {position = root.Position, time = os.time()}
-				makeStandSpeak(speaker.Name.." is now AFK")
-				lastResponseTime = tick()
-				return
-			end
-		end
-	end
-
-	for playerName, afkData in pairs(afkPlayers) do
-		if msg:find(playerName:lower():sub(1, 3)) then
-			makeStandSpeak(playerName.." is AFK")
-			lastResponseTime = tick()
-			return
-		end
+	if msg:find("i am afk") or msg:find("im afk") or msg:find("i'm afk") or msg:find("afk") then
+		afkPlayers[speaker.Name] = true
+		makeStandSpeak(speaker.Name.." is now AFK")
+		lastResponseTime = tick()
+		return
+	elseif msg:find("back") and afkPlayers[speaker.Name] then
+		afkPlayers[speaker.Name] = nil
+		makeStandSpeak(speaker.Name.." is back from AFK!")
+		lastResponseTime = tick()
+		return
 	end
 
 	if msg:find("who is innocent") or msg:find("whos innocent") then
@@ -898,8 +852,8 @@ local function respondToChat(speaker, message)
 		return
 	end
 
-	if msg:find("roqate") then
-		makeStandSpeak("All glory to Roqate!")
+	if msg:find("roqate") or msg:find("who made you") or msg:find("who created you") or msg:find("who owns you") then
+		makeStandSpeak("My king Roqate!")
 		lastResponseTime = tick()
 		return
 	end
@@ -938,7 +892,7 @@ local function respondToChat(speaker, message)
 			}
 		},
 		{
-			patterns = {"script", "code", "made this", "who made"},
+			patterns = {"script", "code", "made this"},
 			responses = {
 				"My existence is by royal decree!",
 				"Only the worthy command such power!",
@@ -1262,7 +1216,6 @@ local function processCommand(speaker, message)
 	end
 end
 
-
 local function setupChatListeners()
 	for _, player in ipairs(Players:GetPlayers()) do
 		player.Chatted:Connect(function(message)
@@ -1287,16 +1240,9 @@ if localPlayer then
 	end
 	setupChatListeners()
 
-	local afkCheckConnection = RunService.Heartbeat:Connect(function()
-		checkAFKPlayers()
-	end)
-
 	script.Destroying:Connect(function()
 		dismissStand()
 		stopSus()
-		if afkCheckConnection then
-			afkCheckConnection:Disconnect()
-		end
 	end)
 else
 	warn("LocalPlayer not found!")
