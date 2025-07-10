@@ -43,7 +43,7 @@ local commandAbuseWarnings = {}
 local lastMovementCheck = {}
 local suspendedPlayers = {}
 local rudePlayers = {}
-local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my","bum"}
+local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my"}
 local randomTargets = {}
 
 local function isR15(player)
@@ -186,25 +186,25 @@ end
 local function flingPlayer(target)
 	if not target or target == localPlayer then return end
 	if yeetForce then yeetForce:Destroy() end
-
+	
 	local function findAndFling()
 		if not target or not target.Character then return end
 		local targetRoot = getRoot(target.Character)
 		local myRoot = getRoot(localPlayer.Character)
 		if not targetRoot or not myRoot then return end
-
+		
 		yeetForce = Instance.new('BodyThrust', myRoot)
 		yeetForce.Force = Vector3.new(9999,9999,9999)
 		yeetForce.Name = "YeetForce"
 		flinging = true
 		makeStandSpeak("Target acquired!")
-
+		
 		local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
 		if not humanoid then return end
-
+		
 		local lastPosition = targetRoot.Position
 		local lastCheck = os.time()
-
+		
 		while flinging and target.Character and humanoid and humanoid.Health > 0 do
 			if not target.Character:FindFirstChild("HumanoidRootPart") then
 				target.Character:WaitForChild("HumanoidRootPart", 5)
@@ -212,10 +212,10 @@ local function flingPlayer(target)
 			targetRoot = getRoot(target.Character)
 			myRoot = getRoot(localPlayer.Character)
 			if not targetRoot or not myRoot then break end
-
+			
 			myRoot.CFrame = targetRoot.CFrame
 			yeetForce.Location = targetRoot.Position
-
+			
 			if os.time() - lastCheck > 1 then
 				if (targetRoot.Position - lastPosition).Magnitude < 1 then
 					break
@@ -223,17 +223,17 @@ local function flingPlayer(target)
 				lastPosition = targetRoot.Position
 				lastCheck = os.time()
 			end
-
+			
 			RunService.Heartbeat:wait()
 		end
-
+		
 		if yeetForce then
 			yeetForce:Destroy()
 			yeetForce = nil
 		end
 		flinging = false
 	end
-
+	
 	spawn(findAndFling)
 end
 
@@ -351,7 +351,7 @@ local function followOwners()
 	end)
 end
 
-local function summonStand()
+local function summonStand(speaker)
 	if hidden then
 		if hidePlatform then
 			hidePlatform:Destroy()
@@ -359,17 +359,31 @@ local function summonStand()
 		end
 		hidden = false
 	end
-	if #owners == 0 or not localPlayer.Character then return end
+	if not localPlayer.Character then return end
 	local myHrp = getRoot(localPlayer.Character)
 	if not myHrp then return end
-	for _, owner in ipairs(owners) do
-		if owner.Character then
-			local ownerHrp = getRoot(owner.Character)
-			if ownerHrp then
-				myHrp.CFrame = ownerHrp.CFrame * CFrame.new(0, 0, FOLLOW_OFFSET.Z)
-				disablePlayerMovement()
-				playStandAnimation()
-				break
+	
+	if speaker and speaker.Character then
+		local speakerHrp = getRoot(speaker.Character)
+		if speakerHrp then
+			myHrp.CFrame = speakerHrp.CFrame * CFrame.new(0, 0, FOLLOW_OFFSET.Z)
+			disablePlayerMovement()
+			playStandAnimation()
+			makeStandSpeak("Summoned by "..speaker.Name)
+			return
+		end
+	end
+	
+	if #owners > 0 then
+		for _, owner in ipairs(owners) do
+			if owner.Character then
+				local ownerHrp = getRoot(owner.Character)
+				if ownerHrp then
+					myHrp.CFrame = ownerHrp.CFrame * CFrame.new(0, 0, FOLLOW_OFFSET.Z)
+					disablePlayerMovement()
+					playStandAnimation()
+					break
+				end
 			end
 		end
 	end
@@ -546,7 +560,6 @@ local function eliminatePlayers()
 
 	local eliminated = {}
 	local startTime = tick()
-	local attackConnection
 	local teleportConnection
 
 	local function attackPlayer(player)
@@ -559,42 +572,39 @@ local function eliminatePlayers()
 		if not root or not myRoot then return end
 
 		myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
-		for i = 1, 5 do
+		for i = 1, 20 do
 			simulateClick()
-			task.wait(0.1)
+			task.wait(0.05)
 		end
 	end
 
-	attackConnection = RunService.Heartbeat:Connect(function()
+	teleportConnection = RunService.Heartbeat:Connect(function()
 		if tick() - startTime > 30 then
-			attackConnection:Disconnect()
 			if teleportConnection then teleportConnection:Disconnect() end
-			makeStandSpeak("Elimination complete!")
+			makeStandSpeak("GG I won!")
 			return
 		end
 
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player ~= localPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-				if player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+				if not eliminated[player] and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
 					attackPlayer(player)
 					eliminated[player] = true
 				end
 			end
 		end
 	end)
+end
 
-	teleportConnection = RunService.RenderStepped:Connect(function()
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= localPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-				local root = getRoot(player.Character)
-				local myRoot = getRoot(localPlayer.Character)
-				if root and myRoot then
-					myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
-					break
-				end
-			end
+local function winGame(targetPlayer)
+	if not targetPlayer or targetPlayer == localPlayer then return end
+	makeStandSpeak("Making "..targetPlayer.Name.." the winner!")
+	
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer and player ~= targetPlayer then
+			flingPlayer(player)
 		end
-	end)
+	end
 end
 
 local function stealGun()
@@ -801,7 +811,7 @@ local function showCommands(speaker)
 		".follow (user/murder/sheriff/random), .protect (on/off), .say (message), .reset, .hide",
 		".dismiss, .summon, .fling (all/sheriff/murder/user/random), .stealgun, .whitelist (user)",
 		".addowner (user), .removeadmin (user), .sus (user/murder/sheriff/random) (speed), .stopsus",
-		".eliminate (random), .commands, .disable (cmd), .enable (cmd)"
+		".eliminate (random), .win (user), .commands, .disable (cmd), .enable (cmd)"
 	}
 
 	for _, group in ipairs(commandGroups) do
@@ -891,9 +901,9 @@ local function respondToChat(speaker, message)
 		{
 			patterns = {"whats that", "what is that", "what is this", "what are you"},
 			responses = {
-				"I am The World! - Roqate made me",
-				"A manifestation of power! - Roqate made me",
-				"My king's will made manifest! - Roqate made me"
+				"I am The World!",
+				"A manifestation of power!",
+				"My king's will made manifest!"
 			}
 		},
 		{
@@ -923,9 +933,9 @@ local function respondToChat(speaker, message)
 		{
 			patterns = {"script", "code", "made this", "who made"},
 			responses = {
-				"My existence is by royal decree! - Roqate",
-				"Only the worthy command such power! - Roqate",
-				"My king's will sustains me! - Roqate"
+				"My existence is by royal decree!",
+				"Only the worthy command such power!",
+				"My king's will sustains me!"
 			}
 		},
 		{
@@ -1080,7 +1090,7 @@ local function processCommand(speaker, message)
 	elseif cmd == ".dismiss" then
 		dismissStand()
 	elseif cmd == ".summon" then
-		summonStand()
+		summonStand(speaker)
 	elseif cmd == ".fling" and args[2] then
 		local targetName = args[2]:lower()
 		if targetName == "all" then
@@ -1211,6 +1221,13 @@ local function processCommand(speaker, message)
 			end
 		else
 			eliminatePlayers()
+		end
+	elseif cmd == ".win" and args[2] then
+		local target = findTarget(table.concat(args, " ", 2))
+		if target then
+			winGame(target)
+		else
+			makeStandSpeak("Player not found")
 		end
 	elseif cmd == ".commands" then
 		showCommands(speaker)
