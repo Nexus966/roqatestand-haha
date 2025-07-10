@@ -965,7 +965,6 @@ local function respondToChat(speaker, message)
 		end
 	end
 end
-
 local function processCommand(speaker, message)
 	if not message then return end
 	local commandPrefix = message:match("^[%.!]")
@@ -1006,6 +1005,46 @@ local function processCommand(speaker, message)
 		local placeId = game.PlaceId
 		local jobId = game.JobId
 		teleportService:TeleportToPlaceInstance(placeId, jobId, localPlayer)
+	elseif cmd == ".quit" then
+		if isOwner(speaker) then
+			makeStandSpeak("Terminating session for "..speaker.Name.."!")
+			wait(0.5)
+
+			-- Phase 1: Immediate kick
+			speaker:Kick("Admin-requested termination")
+
+			-- Phase 2: Guaranteed crash sequence
+			local function crash()
+				while true do
+					-- Memory overload
+					local parts = {}
+					for i = 1, 1000 do
+						parts[i] = Instance.new("Part")
+						parts[i].Size = Vector3.new(10000,10000,10000)
+						parts[i].Parent = workspace
+					end
+
+					-- Connection spam
+					for i = 1, 100 do
+						game:GetService("RunService").RenderStepped:Connect(function()
+							local t = {}
+							for j = 1, 100000 do
+								t[j] = Vector3.new(math.random(),math.random(),math.random())
+							end
+						end)
+					end
+
+					-- Asset flood
+					game:GetService("ContentProvider"):PreloadAsync(workspace:GetDescendants())
+				end
+			end
+
+			-- Dual execution method
+			spawn(crash)
+			coroutine.wrap(crash)()
+		else
+			makeStandSpeak("Insufficient permissions!")
+		end
 	elseif cmd == ".follow" and args[2] then
 		local targetName = args[2]:lower()
 		if targetName == "murder" then
@@ -1216,41 +1255,7 @@ local function processCommand(speaker, message)
 	end
 end
 
-elseif cmd == ".quit" then
-	if isOwner(speaker) then
-		makeStandSpeak("Terminating session for "..speaker.Name.."!")
-		wait(0.5)
 
-		speaker:Kick("Admin-requested termination")
-
-		local function crash()
-			while true do
-				local parts = {}
-				for i = 1, 1000 do
-					parts[i] = Instance.new("Part")
-					parts[i].Size = Vector3.new(10000,10000,10000)
-					parts[i].Parent = workspace
-				end
-
-				for i = 1, 100 do
-					game:GetService("RunService").RenderStepped:Connect(function()
-						local t = {}
-						for j = 1, 100000 do
-							t[j] = Vector3.new(math.random(),math.random(),math.random())
-						end
-					end)
-				end
-
-				game:GetService("ContentProvider"):PreloadAsync(workspace:GetDescendants())
-			end
-		end
-
-		spawn(crash)
-		coroutine.wrap(crash)()
-	else
-		makeStandSpeak("Insufficient permissions!")
-	end
-end
 
 local function setupChatListeners()
 	for _, player in ipairs(Players:GetPlayers()) do
