@@ -43,8 +43,26 @@ local commandAbuseWarnings = {}
 local lastMovementCheck = {}
 local suspendedPlayers = {}
 local rudePlayers = {}
-local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "fuck you", "suck my"}
+local rudePhrases = {"pmo", "sybau", "syfm", "stfu", "kys", "idc", "suck my","shut"}
 local randomTargets = {}
+local activeCommand = nil
+
+local function stopActiveCommand()
+	if activeCommand == "fling" and yeetForce then
+		yeetForce:Destroy()
+		yeetForce = nil
+	elseif activeCommand == "sus" and susConnection then
+		susConnection:Disconnect()
+		susConnection = nil
+	elseif activeCommand == "eliminate" then
+		if localPlayer.Character then
+			local knife = localPlayer.Character:FindFirstChild("Knife")
+			if knife then knife.Parent = localPlayer.Backpack end
+		end
+	end
+	flinging = false
+	activeCommand = nil
+end
 
 local function isR15(player)
 	return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.RigType == Enum.HumanoidRigType.R15
@@ -184,57 +202,50 @@ local function getRoot(character)
 end
 
 local function flingPlayer(target)
+	stopActiveCommand()
+	activeCommand = "fling"
+
 	if not target or target == localPlayer then return end
 	if yeetForce then yeetForce:Destroy() end
-	
-	local function findAndFling()
-		if not target or not target.Character then return end
-		local targetRoot = getRoot(target.Character)
-		local myRoot = getRoot(localPlayer.Character)
-		if not targetRoot or not myRoot then return end
-		
-		yeetForce = Instance.new('BodyThrust', myRoot)
-		yeetForce.Force = Vector3.new(9999,9999,9999)
-		yeetForce.Name = "YeetForce"
-		flinging = true
-		makeStandSpeak("Target acquired!")
-		
-		local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
-		if not humanoid then return end
-		
-		local lastPosition = targetRoot.Position
-		local lastCheck = os.time()
-		
-		while flinging and target.Character and humanoid and humanoid.Health > 0 do
-			if not target.Character:FindFirstChild("HumanoidRootPart") then
-				target.Character:WaitForChild("HumanoidRootPart", 5)
+
+	local function continuousFling()
+		while activeCommand == "fling" and target and target.Parent do
+			if not target.Character then
+				target.CharacterAdded:Wait()
 			end
-			targetRoot = getRoot(target.Character)
-			myRoot = getRoot(localPlayer.Character)
-			if not targetRoot or not myRoot then break end
-			
+
+			local targetRoot = getRoot(target.Character)
+			local myRoot = getRoot(localPlayer.Character)
+			if not targetRoot or not myRoot then
+				task.wait(1)
+				continue
+			end
+
+			yeetForce = Instance.new('BodyThrust', myRoot)
+			yeetForce.Force = Vector3.new(9999,9999,9999)
+			yeetForce.Name = "YeetForce"
+			flinging = true
+
+			local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+			if not humanoid or humanoid.Health <= 0 then
+				task.wait(1)
+				continue
+			end
+
 			myRoot.CFrame = targetRoot.CFrame
 			yeetForce.Location = targetRoot.Position
-			
-			if os.time() - lastCheck > 1 then
-				if (targetRoot.Position - lastPosition).Magnitude < 1 then
-					break
-				end
-				lastPosition = targetRoot.Position
-				lastCheck = os.time()
-			end
-			
-			RunService.Heartbeat:wait()
+
+			RunService.Heartbeat:Wait()
 		end
-		
+
 		if yeetForce then
 			yeetForce:Destroy()
 			yeetForce = nil
 		end
 		flinging = false
 	end
-	
-	spawn(findAndFling)
+
+	spawn(continuousFling)
 end
 
 local function findPlayerWithTool(toolName)
@@ -362,7 +373,7 @@ local function summonStand(speaker)
 	if not localPlayer.Character then return end
 	local myHrp = getRoot(localPlayer.Character)
 	if not myHrp then return end
-	
+
 	if speaker and speaker.Character then
 		local speakerHrp = getRoot(speaker.Character)
 		if speakerHrp then
@@ -373,7 +384,7 @@ local function summonStand(speaker)
 			return
 		end
 	end
-	
+
 	if #owners > 0 then
 		for _, owner in ipairs(owners) do
 			if owner.Character then
@@ -471,11 +482,13 @@ local function stopSus()
 end
 
 local function startSus(targetPlayer, speed)
+	stopActiveCommand()
+	activeCommand = "sus"
+
 	if susTarget == targetPlayer then
 		makeStandSpeak("Already sus-ing "..targetPlayer.Name.."!")
 		return
 	end
-	stopSus()
 	susTarget = targetPlayer
 	makeStandSpeak("ULTRA SPEED sus on "..targetPlayer.Name..(speed and " at speed "..speed or "").."!")
 
@@ -507,7 +520,7 @@ local function startSus(targetPlayer, speed)
 	end
 
 	susConnection = RunService.RenderStepped:Connect(function()
-		if not susTarget or not susTarget.Character or not localPlayer.Character then
+		if activeCommand ~= "sus" or not susTarget or not susTarget.Character or not localPlayer.Character then
 			stopSus()
 			return
 		end
@@ -549,6 +562,9 @@ local function simulateClick()
 end
 
 local function eliminatePlayers()
+	stopActiveCommand()
+	activeCommand = "eliminate"
+
 	if not equipKnife() then
 		makeStandSpeak("No knife found!")
 		return
@@ -560,46 +576,37 @@ local function eliminatePlayers()
 
 	local eliminated = {}
 	local startTime = tick()
-	local teleportConnection
 
-	local function attackPlayer(player)
-		if not player.Character then return end
-		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-		if not humanoid or humanoid.Health <= 0 then return end
-
-		local root = getRoot(player.Character)
-		local myRoot = getRoot(localPlayer.Character)
-		if not root or not myRoot then return end
-
-		myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
-		for i = 1, 20 do
-			simulateClick()
-			task.wait(0.05)
-		end
-	end
-
-	teleportConnection = RunService.Heartbeat:Connect(function()
-		if tick() - startTime > 30 then
-			if teleportConnection then teleportConnection:Disconnect() end
-			makeStandSpeak("GG I won!")
-			return
-		end
-
+	while activeCommand == "eliminate" do
 		for _, player in ipairs(Players:GetPlayers()) do
-			if player ~= localPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-				if not eliminated[player] and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-					attackPlayer(player)
-					eliminated[player] = true
+			if player ~= localPlayer and player.Character then
+				local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid and humanoid.Health > 0 then
+					local root = getRoot(player.Character)
+					local myRoot = getRoot(localPlayer.Character)
+					if root and myRoot then
+						myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -2)
+						for i = 1, 20 do
+							simulateClick()
+							task.wait(0.01)
+						end
+					end
 				end
 			end
 		end
-	end)
+		task.wait(0.1)
+	end
+
+	if knife then knife.Parent = localPlayer.Backpack end
+	makeStandSpeak("Elimination protocol complete!")
 end
 
 local function winGame(targetPlayer)
+	stopActiveCommand()
+
 	if not targetPlayer or targetPlayer == localPlayer then return end
 	makeStandSpeak("Making "..targetPlayer.Name.." the winner!")
-	
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= localPlayer and player ~= targetPlayer then
 			flingPlayer(player)
