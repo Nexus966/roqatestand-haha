@@ -726,41 +726,31 @@ local function stringContainsAny(str, patterns)
 	end
 	return false
 end
+
 local function getColorName(color)
 	local r, g, b = color.R * 255, color.G * 255, color.B * 255
-
-	if r > 240 and g > 240 and b > 240 then return "White"
-	if r < 30 and g < 30 and b < 30 then return "Black"
-
-	-- Basic grayscale range
-	if math.abs(r - g) < 10 and math.abs(g - b) < 10 then
-		if r > 180 then return "Light Gray"
-		if r > 100 then return "Gray"
-		return "Dark Gray"
-	end
-
-	-- Common skin tones
-	if r > 180 and g > 140 and b < 120 then return "Peach"
-	if r > 160 and g > 110 and b < 90 then return "Tan"
-	if r > 120 and g > 80 and b < 60 then return "Brown"
-	if r > 90 and g > 60 and b < 40 then return "Dark Brown"
-
-	-- Brighter colors
-	if r > 200 and g > 100 and b < 100 then return "Orange"
-	if r > 200 and g < 80 and b < 80 then return "Red"
-	if g > 200 and r < 100 and b < 100 then return "Green"
-	if b > 200 and r < 100 and g < 100 then return "Blue"
-	if r > 180 and b > 180 and g < 100 then return "Pink"
-	if r > 150 and b > 150 and g > 150 then return "Pastel"
-
-	-- Secondary tones
-	if r > g and b > g then return "Purple"
-	if g > r and b > r then return "Teal"
-	if r > b and g > b then return "Yellow"
-
-	return "Unknown"
+	
+	if r > 200 and g > 200 and b > 200 then return "White"
+	elseif r < 50 and g < 50 and b < 50 then return "Black"
+	elseif r > g + 50 and r > b + 50 then
+		if g > 150 then return "Orange"
+		elseif g > 100 then return "Red-Orange"
+		else return "Red" end
+	elseif g > r + 50 and g > b + 50 then
+		if r > 150 then return "Yellow-Green"
+		elseif b > 100 then return "Teal"
+		else return "Green" end
+	elseif b > r + 50 and b > g + 50 then
+		if r > 150 then return "Purple"
+		elseif g > 100 then return "Blue-Green"
+		else return "Blue" end
+	elseif r > 150 and g > 150 then return "Yellow"
+	elseif r > 150 and b > 150 then return "Magenta"
+	elseif g > 150 and b > 150 then return "Cyan"
+	elseif r > 100 and g > 100 and b > 100 then return "Light Gray"
+	elseif r > 50 and g > 50 and b > 50 then return "Gray"
+	else return "Dark Gray" end
 end
-
 
 local function describePlayer(targetType)
     local target
