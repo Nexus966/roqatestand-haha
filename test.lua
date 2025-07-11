@@ -753,82 +753,83 @@ local function stringContainsAny(str, patterns)
     return false
 end
 
-local function getColorName(color)
-    local r, g, b = color.R * 255, color.G * 255, color.B * 255
-
-    if r > 240 and g > 240 and b > 240 then return "White" end
-    if r < 30 and g < 30 and b < 30 then return "Black" end
-
-    if math.abs(r - g) < 10 and math.abs(g - b) < 10 then
-        if r > 180 then return "Light Gray" end
-        if r > 100 then return "Gray" end
-        return "Dark Gray"
+local function getSkinTone(humanoid)
+    if not humanoid or not humanoid:FindFirstChild("BodyColors") then
+        return "Unknown"
     end
-
-    if r > 180 and g > 140 and b < 120 then return "Peach" end
-    if r > 160 and g > 110 and b < 90 then return "Tan" end
-    if r > 120 and g > 80 and b < 60 then return "Brown" end
-    if r > 90 and g > 60 and b < 40 then return "Dark Brown" end
-
-    if r > 200 and g > 100 and b < 100 then return "Orange" end
-    if r > 200 and g < 80 and b < 80 then return "Red" end
-    if g > 200 and r < 100 and b < 100 then return "Green" end
-    if b > 200 and r < 100 and g < 100 then return "Blue" end
-    if r > 180 and b > 180 and g < 100 then return "Pink" end
-    if r > 150 and b > 150 and g > 150 then return "Pastel" end
-
-    if r > g and b > g then return "Purple" end
-    if g > r and b > r then return "Teal" end
-    if r > b and g > b then return "Yellow" end
-
-    return "Unknown"
+    
+    local skinColor = humanoid.BodyColors.HeadColor3
+    local r, g, b = skinColor.r * 255, skinColor.g * 255, skinColor.b * 255
+    
+    if r > 240 and g > 240 and b > 240 then return "Pale White"
+    elseif r > 220 and g > 190 and b > 160 then return "Fair"
+    elseif r > 200 and g > 170 and b > 140 then return "Light"
+    elseif r > 180 and g > 150 and b > 120 then return "Medium Light"
+    elseif r > 160 and g > 130 and b > 100 then return "Medium"
+    elseif r > 140 and g > 110 and b > 80 then return "Tan"
+    elseif r > 120 and g > 90 and b > 60 then return "Brown"
+    elseif r > 100 and g > 70 and b > 40 then return "Dark Brown"
+    elseif r > 80 and g > 50 and b > 30 then return "Dark"
+    else return "Custom" end
 end
 
 local function describePlayer(targetName)
     local target = nil
     if targetName:lower() == "murd" then
         target = findPlayerWithTool("Knife")
-        if not target then return "No murderer found!" end
+        if not target then return {"No murderer found!"} end
     elseif targetName:lower() == "sheriff" then
         target = findPlayerWithTool("Gun")
-        if not target then return "No sheriff found!" end
+        if not target then return {"No sheriff found!"} end
     else
         target = findTarget(targetName)
-        if not target then return "Player not found!" end
+        if not target then return {"Player not found!"} end
     end
     
-    local color = "Unknown"
-    if target.Character then
-        local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid:FindFirstChild("BodyColors") then
-            color = getColorName(humanoid.BodyColors.HeadColor3)
-        end
-    end
-    
-    local clothing = {}
+    local messages = {}
+    local skinTone = "Unknown"
     local accessories = {}
     
     if target.Character then
+        local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            skinTone = getSkinTone(humanoid)
+        end
+        
         for _, item in ipairs(target.Character:GetChildren()) do
-            if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
-                table.insert(clothing, item.Name:sub(1,15))
-            elseif item:IsA("Accessory") then
-                table.insert(accessories, item.Name:sub(1,15))
+            if item:IsA("Accessory") then
+                table.insert(accessories, item.Name)
             end
         end
     end
     
-    local description = string.format("%s [%s]", target.Name, color)
-    
-    if #clothing > 0 then
-        description = description.." | Clothes: "..table.concat(clothing, ", ")
-    end
+    table.insert(messages, target.Name.."'s skin tone: "..skinTone)
     
     if #accessories > 0 then
-        description = description.." | Accessories: "..table.concat(accessories, ", ")
+        local half = math.ceil(#accessories / 2)
+        local firstHalf = {}
+        local secondHalf = {}
+        
+        for i = 1, half do
+            table.insert(firstHalf, accessories[i])
+        end
+        
+        for i = half + 1, #accessories do
+            table.insert(secondHalf, accessories[i])
+        end
+        
+        if #firstHalf > 0 then
+            table.insert(messages, "Accessories (1/"..(#accessories > 1 and "2" or "1").."): "..table.concat(firstHalf, ", "))
+        end
+        
+        if #secondHalf > 0 then
+            table.insert(messages, "Accessories (2/2): "..table.concat(secondHalf, ", "))
+        end
+    else
+        table.insert(messages, "No accessories found")
     end
     
-    return description
+    return messages
 end
 
 local function checkCommandAbuse(speaker)
@@ -1385,8 +1386,11 @@ local function processCommand(speaker, message)
         end
         enableCommand(args[2])
     elseif cmd == ".describe" and args[2] then
-        local description = describePlayer(table.concat(args, " ", 2))
-        makeStandSpeak(description)
+        local messages = describePlayer(table.concat(args, " ", 2))
+        for _, msg in ipairs(messages) do
+            makeStandSpeak(msg)
+            task.wait(1.5)
+        end
     end
 end
 
