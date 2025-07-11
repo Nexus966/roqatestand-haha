@@ -788,54 +788,40 @@ local function describePlayer(targetName)
     local target = nil
     if targetName:lower() == "murd" then
         target = findPlayerWithTool("Knife")
+        if not target then return "No murderer found!" end
     elseif targetName:lower() == "sheriff" then
         target = findPlayerWithTool("Gun")
+        if not target then return "No sheriff found!" end
     else
         target = findTarget(targetName)
-    end
-    
-    if not target then
-        return "Player not found!"
+        if not target then return "Player not found!" end
     end
     
     local color = "Unknown"
     if target.Character then
         local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
+        if humanoid and humanoid:FindFirstChild("BodyColors") then
             color = getColorName(humanoid.BodyColors.HeadColor3)
         end
     end
     
-    local clothingItems = {}
+    local clothing = {}
+    local accessories = {}
+    
     if target.Character then
         for _, item in ipairs(target.Character:GetChildren()) do
             if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
-                local itemName = item.Name
-                if #itemName > 15 then
-                    itemName = itemName:match("%w+") or itemName:sub(1, 15)
-                end
-                table.insert(clothingItems, item.ClassName..": "..itemName)
+                table.insert(clothing, item.Name:sub(1,15))
+            elseif item:IsA("Accessory") then
+                table.insert(accessories, item.Name:sub(1,15))
             end
         end
     end
     
-    local accessories = {}
-    if target.Character then
-        for _, item in ipairs(target.Character:GetChildren()) do
-            if item:IsA("Accessory") then
-                local itemName = item.Name
-                if #itemName > 15 then
-                    itemName = itemName:match("%w+") or itemName:sub(1, 15)
-                end
-                table.insert(accessories, "Accessory: "..itemName)
-            end
-        end
-    end
+    local description = string.format("%s [%s]", target.Name, color)
     
-    local description = target.Name.." | Color: "..color
-    
-    if #clothingItems > 0 then
-        description = description.." | Wearing: "..table.concat(clothingItems, ", ")
+    if #clothing > 0 then
+        description = description.." | Clothes: "..table.concat(clothing, ", ")
     end
     
     if #accessories > 0 then
@@ -1399,29 +1385,8 @@ local function processCommand(speaker, message)
         end
         enableCommand(args[2])
     elseif cmd == ".describe" and args[2] then
-        local targetName = args[2]:lower()
-        if targetName == "murd" then
-            local target = findPlayerWithTool("Knife")
-            if target then
-                makeStandSpeak(describePlayer(target.Name))
-            else
-                makeStandSpeak("No murderer found")
-            end
-        elseif targetName == "sheriff" then
-            local target = findPlayerWithTool("Gun")
-            if target then
-                makeStandSpeak(describePlayer(target.Name))
-            else
-                makeStandSpeak("No sheriff found")
-            end
-        else
-            local target = findTarget(table.concat(args, " ", 2))
-            if target then
-                makeStandSpeak(describePlayer(target.Name))
-            else
-                makeStandSpeak("Player not found")
-            end
-        end
+        local description = describePlayer(table.concat(args, " ", 2))
+        makeStandSpeak(description)
     end
 end
 
