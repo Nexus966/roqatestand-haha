@@ -752,24 +752,23 @@ local function stringContainsAny(str, patterns)
     end
     return false
 end
-
 local function getSkinTone(humanoid)
     if not humanoid or not humanoid:FindFirstChild("BodyColors") then
         return "Unknown"
     end
     
     local skinColor = humanoid.BodyColors.HeadColor3
-    local r, g, b = skinColor.r * 255, skinColor.g * 255, skinColor.b * 255
+    local r, g, b = skinColor.r, skinColor.g, skinColor.b
     
-    if r > 240 and g > 240 and b > 240 then return "Pale White"
-    elseif r > 220 and g > 190 and b > 160 then return "Fair"
-    elseif r > 200 and g > 170 and b > 140 then return "Light"
-    elseif r > 180 and g > 150 and b > 120 then return "Medium Light"
-    elseif r > 160 and g > 130 and b > 100 then return "Medium"
-    elseif r > 140 and g > 110 and b > 80 then return "Tan"
-    elseif r > 120 and g > 90 and b > 60 then return "Brown"
-    elseif r > 100 and g > 70 and b > 40 then return "Dark Brown"
-    elseif r > 80 and g > 50 and b > 30 then return "Dark"
+    if r > 0.9 and g > 0.9 and b > 0.9 then return "Pale White"
+    elseif r > 0.85 and g > 0.75 and b > 0.65 then return "Fair"
+    elseif r > 0.8 and g > 0.65 and b > 0.55 then return "Light"
+    elseif r > 0.7 and g > 0.6 and b > 0.5 then return "Medium Light"
+    elseif r > 0.6 and g > 0.5 and b > 0.4 then return "Medium"
+    elseif r > 0.5 and g > 0.4 and b > 0.3 then return "Tan"
+    elseif r > 0.4 and g > 0.3 and b > 0.2 then return "Brown"
+    elseif r > 0.3 and g > 0.2 and b > 0.1 then return "Dark Brown"
+    elseif r > 0.2 and g > 0.1 and b > 0.05 then return "Dark"
     else return "Custom" end
 end
 
